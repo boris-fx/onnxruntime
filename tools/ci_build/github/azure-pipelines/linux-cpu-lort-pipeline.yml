@@ -15,7 +15,7 @@ jobs:
 
   - template: templates/get-docker-image-steps.yml
     parameters:
-      Dockerfile: tools/ci_build/github/linux/docker/Dockerfile.manylinux2014_eager_cpu
+      Dockerfile: tools/ci_build/github/linux/docker/Dockerfile.manylinux2014_lort_cpu
       Context: tools/ci_build/github/linux/docker
       DockerBuildArgs: "--build-arg BUILD_UID=$( id -u )"
       Repository: onnxruntimecpubuildlortmode
@@ -40,8 +40,7 @@ jobs:
               --skip_submodule_sync \
               --build_shared_lib \
               --parallel \
-              --build_eager_mode --enable_training --build_wheel --skip_test \
-              --enable_lazy_tensor
+              --build_lazy_tensor --enable_training --build_wheel --skip_test \
       workingDirectory: $(Build.SourcesDirectory)
 
   - task: CmdLine@2
@@ -58,15 +57,8 @@ jobs:
           -e NIGHTLY_BUILD \
           -e BUILD_BUILDNUMBER \
           onnxruntimecpubuildlortmode \
-            bash -c "export PYTHONPATH=/build/Release && /opt/python/cp38-cp38/bin/python3 -m onnxruntime.training.ortmodule.torch_cpp_extensions.install &&\
-              /opt/python/cp38-cp38/bin/python3 /onnxruntime_src/tools/ci_build/build.py \
-              --build_dir /build --cmake_generator Ninja \
-              --config Release \
-              --skip_submodule_sync \
-              --build_shared_lib \
-              --parallel \
-              --build_eager_mode --enable_training --build_wheel --test\
-              --enable_lazy_tensor"
+            bash -c "export PYTHONPATH=/build/Release && \
+              /opt/python/cp38-cp38/bin/python3 -m pytest /onnxruntime_src/orttraining/orttraining/test/python/orttraining_test_lort.py \
       workingDirectory: $(Build.SourcesDirectory)
 
   - template: templates/clean-agent-build-directory-step.yml
