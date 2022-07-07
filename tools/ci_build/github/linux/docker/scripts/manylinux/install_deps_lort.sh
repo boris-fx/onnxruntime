@@ -84,7 +84,7 @@ unzip /tmp/src/gradle-6.3-bin.zip
 mv /tmp/src/gradle-6.3 /usr/local/gradle
 
 if ! [ -x "$(command -v protoc)" ]; then
-  source ${0/%install_deps_eager\.sh/..\/install_protobuf.sh}
+  source ${0/%install_deps_lort\.sh/..\/install_protobuf.sh}
 fi
 
 export ONNX_ML=1
@@ -93,6 +93,8 @@ export CMAKE_ARGS="-DONNX_GEN_PB_TYPE_STUBS=OFF -DONNX_WERROR=OFF"
 for PYTHON_EXE in "${PYTHON_EXES[@]}"
 do
   cd /tmp/src
+  echo "enter $PWD"
+  echo "clone Pytorch"
   git clone --recursive https://github.com/wschin/pytorch.git
   cd pytorch
   git checkout lort
