@@ -3346,15 +3346,6 @@ struct OrtApi {
                   _In_reads_(input_len) const OrtValue* const* initializers, size_t initializers_num);
 
   /** \brief: Create attribute of onnxruntime operator
-<<<<<<< HEAD
-  *
-  * \param[in] name of the attribute
-  * \param[in] data of the attribute
-  * \param[in] data length
-  * \param[in] data type
-  * \param[out] attribute that has been created, which must be released by OrtApi::ReleaseOpAttr
-  *
-=======
   *
   * \param[in] name Name of the attribute
   * \param[in] data Data content of the attribute
@@ -3362,7 +3353,6 @@ struct OrtApi {
   * \param[in] type Data type
   * \param[out] op_attr Attribute that has been created, which must be released by OrtApi::ReleaseOpAttr
   *
->>>>>>> origin/master
   * \since Version 1.12.
   */
   ORT_API2_STATUS(CreateOpAttr,
@@ -3374,32 +3364,13 @@ struct OrtApi {
 
   /* \brief: Release op attribute
   *
-<<<<<<< HEAD
-  * \param[in] attribute created by OrtApi::CreateOpAttr
-  *
-=======
   * \param[in] opAttr Attribute created by OrtApi::CreateOpAttr
   *
->>>>>>> origin/master
   * \since Version 1.12.
   */
   ORT_CLASS_RELEASE(OpAttr);
 
   /** \brief: Create onnxruntime native operator
-<<<<<<< HEAD
-  *
-  * \param[in] kernel info
-  * \param[in] operator name
-  * \param[in] operator domain
-  * \param[in] operator opset
-  * \param[in] name of the type contraints, such as "T" or "T1"
-  * \param[in] type of each contraints
-  * \param[in] number of contraints
-  * \param[in] attributes used to initialize the operator
-  * \param[in] number of the attributes
-  * \param[out] operator that has been created
-  *
-=======
   *
   * \param[in] info Kernel info
   * \param[in] op_name Operator name
@@ -3414,7 +3385,6 @@ struct OrtApi {
   * \param[in] output_count Number of outputs
   * \param[out] ort_op Operator that has been created
   *
->>>>>>> origin/master
   * \since Version 1.12.
   */
   ORT_API2_STATUS(CreateOp,
