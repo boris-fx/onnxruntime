@@ -60,5 +60,6 @@ jobs:
             bash -c "export PYTHONPATH=/build/Release && \
               /opt/python/cp38-cp38/bin/python3 -m pytest /onnxruntime_src/orttraining/orttraining/test/python/orttraining_test_lort.py \
       workingDirectory: $(Build.SourcesDirectory)
+      condition: succeededOrFailed()
 
   - template: templates/clean-agent-build-directory-step.yml
