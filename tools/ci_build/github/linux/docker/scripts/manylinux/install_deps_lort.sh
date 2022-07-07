@@ -90,19 +90,20 @@ fi
 export ONNX_ML=1
 export CMAKE_ARGS="-DONNX_GEN_PB_TYPE_STUBS=OFF -DONNX_WERROR=OFF"
 
+cd /tmp/src
+echo "Enter $PWD"
+echo "Clone Pytorch"
+git clone --recursive https://github.com/wschin/pytorch.git
+cd pytorch
+echo "Enter $PWD"
+echo "Install Pytorch requirements"
+git checkout lort
 for PYTHON_EXE in "${PYTHON_EXES[@]}"
 do
-  cd /tmp/src
-  echo "Enter $PWD"
-  echo "Clone Pytorch"
-  git clone --recursive https://github.com/wschin/pytorch.git
-  cd pytorch
-  echo "Enter $PWD"
-  echo "Install Pytorch requirements"
-  git checkout lort
+  echo "Install Pytorch for ${PYTHON_EXE}"
   ${PYTHON_EXE} -m pip install -r requirements.txt
-  VERBOSE=1 BUILD_LAZY_TS_BACKEND=1 ${PYTHON_EXE} setup.py develop
-  ${PYTHON_EXE} -c "import torch; print(torch.__version__)"
+  VERBOSE=1 BUILD_LAZY_TS_BACKEND=1 ${PYTHON_EXE} setup.py
+  ${PYTHON_EXE} -c "import torch; print(f'Found Pytorch version: {torch.__version__}')"
 done
 
 cd /tmp/src
