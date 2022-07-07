@@ -151,7 +151,10 @@ if (onnxruntime_ENABLE_EAGER_MODE OR onnxruntime_ENABLE_LAZY_TENSOR)
   target_include_directories(onnxruntime_pybind11_state PRIVATE
     "${REPO_ROOT}/cmake/external/protobuf/src"
     ${TORCH_INCLUDE_DIRS})
-  target_link_libraries(onnxruntime_pybind11_state PRIVATE ${TORCH_LIBRARIES})
+
+  # Explicitly link torch_python to workaround https://github.com/pytorch/pytorch/issues/38122#issuecomment-694203281
+  find_library(TORCH_PYTHON_LIBRARY torch_python PATHS "${TORCH_INSTALL_PREFIX}/lib")
+  target_link_libraries(onnxruntime_pybind11_state PRIVATE ${TORCH_PYTHON_LIBRARY} ${TORCH_LIBRARIES})
   if (onnxruntime_ENABLE_EAGER_MODE)
     target_link_libraries(onnxruntime_pybind11_state PRIVATE onnxruntime_eager)
   endif()
