@@ -100,7 +100,7 @@ do
   echo "Enter $PWD"
   echo "Install Pytorch requirements"
   git checkout lort
-  pip install -r requirements.txt
+  ${PYTHON_EXE} -m pip install -r requirements.txt
   VERBOSE=1 BUILD_LAZY_TS_BACKEND=1 ${PYTHON_EXE} setup.py develop
   ${PYTHON_EXE} -c "import torch; print(torch.__version__)"
 done
