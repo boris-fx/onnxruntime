@@ -102,7 +102,7 @@ for PYTHON_EXE in "${PYTHON_EXES[@]}"
 do
   echo "Install Pytorch for ${PYTHON_EXE}"
   ${PYTHON_EXE} -m pip install -r requirements.txt
-  VERBOSE=1 BUILD_LAZY_TS_BACKEND=1 ${PYTHON_EXE} setup.py
+  VERBOSE=1 BUILD_LAZY_TS_BACKEND=1 ${PYTHON_EXE} setup.py install
   ${PYTHON_EXE} -c "import torch; print(f'Found Pytorch version: {torch.__version__}')"
 done
 
