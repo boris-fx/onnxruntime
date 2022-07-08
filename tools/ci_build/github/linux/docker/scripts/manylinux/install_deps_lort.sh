@@ -102,6 +102,7 @@ for PYTHON_EXE in "${PYTHON_EXES[@]}"
 do
   echo "Install Pytorch for ${PYTHON_EXE}"
   ${PYTHON_EXE} -m pip install -r requirements.txt
+  ${PYTHON_EXE} -m pip install flatbuffers
   VERBOSE=1 BUILD_LAZY_TS_BACKEND=1 ${PYTHON_EXE} setup.py install
 done
 
