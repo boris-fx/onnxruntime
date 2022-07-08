@@ -98,13 +98,9 @@ cd pytorch
 echo "Enter $PWD"
 echo "Install Pytorch requirements"
 git checkout lort
-for PYTHON_EXE in "${PYTHON_EXES[@]}"
-do
-  echo "Install Pytorch for ${PYTHON_EXE}"
-  ${PYTHON_EXE} -m pip install -r requirements.txt
-  ${PYTHON_EXE} -m pip install flatbuffers
-  VERBOSE=1 BUILD_LAZY_TS_BACKEND=1 ${PYTHON_EXE} setup.py install
-done
+/opt/python/cp39-cp39/bin/python3.9 -m pip install -r requirements.txt
+/opt/python/cp39-cp39/bin/python3.9 -m pip install flatbuffers
+VERBOSE=1 BUILD_LAZY_TS_BACKEND=1 /opt/python/cp39-cp39/bin/python3.9 setup.py develop --user
 
 cd /tmp/src
 GetFile 'https://sourceware.org/pub/valgrind/valgrind-3.16.1.tar.bz2' /tmp/src/valgrind-3.16.1.tar.bz2
