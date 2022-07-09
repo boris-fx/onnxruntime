@@ -100,7 +100,7 @@ echo "Install Pytorch requirements"
 git checkout lort
 /opt/python/cp39-cp39/bin/python3.9 -m pip install -r requirements.txt
 /opt/python/cp39-cp39/bin/python3.9 -m pip install flatbuffers
-VERBOSE=1 BUILD_LAZY_TS_BACKEND=1 /opt/python/cp39-cp39/bin/python3.9 setup.py develop --user
+VERBOSE=1 BUILD_LAZY_TS_BACKEND=1 /opt/python/cp39-cp39/bin/python3.9 setup.py develop
 /opt/python/cp39-cp39/bin/python3.9 -c "import torch; print(f'Installed Pytorch: {torch.__version__}')"
 
 cd /tmp/src
