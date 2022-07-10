@@ -101,7 +101,9 @@ bool Accelerator::Supported(const torch::jit::Node* node) {
 }
 
 void Accelerator::OrtRun(torch::jit::Stack& stack) {
+#ifdef USE_CUDA
   NvtxRange range(__func__);
+#endif
   // Uncomment the following if you want to see the
   // sub-graph in Nsys profiling result. This is useful
   // for debugging.
@@ -147,7 +149,9 @@ void Accelerator::OrtRun(torch::jit::Stack& stack) {
 
 void Accelerator::PytorchRun(torch::jit::Stack& stack) {
   DynamicSettings::GetInstance().SetOnnxFusionFlag(false);
+#ifdef USE_CUDA
   NvtxRange range(__func__);
+#endif
   if (DumpGraph()) {
     std::cout << "[Pytorch,Graph]\n"
               << subgraph_->toString(true);
@@ -170,7 +174,9 @@ void Accelerator::PytorchRun(torch::jit::Stack& stack) {
 }
 
 void Accelerator::DebugRun(torch::jit::Stack& stack) {
+#ifdef USE_CUDA
   NvtxRange range(__func__);
+#endif
   torch::jit::Stack copy;
   copy = stack;
   OrtRun(stack);
@@ -202,7 +208,9 @@ void Accelerator::Run(torch::jit::Stack& stack) {
 static void CheckArgs(
     const at::ArrayRef<c10::IValue>& inputs) {
   // TODO: remove this check.
+#ifdef USE_CUDA
   NvtxRange range(__func__);
+#endif
   TORCH_CHECK(inputs.size(), "Need at least one input.");
   for (const auto& input : inputs) {
     TORCH_CHECK(input.isTensor() || input.isScalar(), "Compiler can only handle Tensor or Scalar inputs.");
@@ -242,7 +250,9 @@ static void PropagateArgTypes(
 static std::string ExportToOnnx(
     std::shared_ptr<torch::jit::Graph> graph,
     const at::ArrayRef<c10::IValue>& args) {
+#ifdef USE_CUDA
   NvtxRange range(__func__);
+#endif USE_CUDA
   // ONNX exporter modifies the graph in-place, so we
   // need to clone it to avoid interaction between
   // Pytorch's JIT mechanism and ONNX graph.
@@ -264,7 +274,9 @@ static std::string ExportToOnnx(
 // Create an empty session object.
 // Models will be loaded later.
 static std::unique_ptr<onnxruntime::InferenceSession> CreateSession() {
+#ifdef USE_CUDA
   NvtxRange range(__func__);
+#endif
   // Enviroment shared by all sessions.
   static onnxruntime::Environment& pybind_default_env = GetLtcEnv();
   // All sessions use the same config.
@@ -303,9 +315,9 @@ static void InitializeSession(
     const OrtDevice device,
     const std::string& serialized_model,
     onnxruntime::InferenceSession& sess) {
-  NvtxRange range(__func__);
   // Add EPs.
 #ifdef USE_CUDA
+  NvtxRange range(__func__);
   // When CUDA is enabled, some CUDA-only graph graph fusions are enabled.
   // If we don't add CUDA EP, ONNX Runtime may throw even when running MNIST.
   // Information needed to construct CUDA execution providers.
@@ -319,7 +331,9 @@ static void InitializeSession(
 }
 
 void Accelerator::ExampleRun(at::ArrayRef<c10::IValue> inputs) {
+#ifdef USE_CUDA
   NvtxRange range(__func__);
+#endif
   torch::jit::Stack stack;
   for (auto input : inputs) {
     stack.push_back(input);
@@ -402,7 +416,9 @@ CompiledObject Accelerator::Compile(
     std::vector<OrtValue> fetches;
 
     {
+#ifdef USE_CUDA
       NvtxRange range("Prepare inputs");
+#endif
       // Prepare inputs.
       const auto num_inputs = subgraph_->inputs().size();
       for (size_t i = 0; i < num_inputs; ++i) {
@@ -426,7 +442,9 @@ CompiledObject Accelerator::Compile(
     }
 
     {
+#ifdef USE_CUDA
       NvtxRange range("Call sess.Run");
+#endif
       // Inputs are ready. Let's run ORT.
       ORT_THROW_IF_ERROR(sess.Run(
           run_options,
@@ -436,7 +454,9 @@ CompiledObject Accelerator::Compile(
 
     std::vector<c10::IValue> outputs;
     {
+#ifdef USE_CUDA
       NvtxRange range("Convert outputs");
+#endif
       // Convert ORT output to Pytorch format.
       for (size_t i = 0; i < fetches.size(); ++i) {
         // Get the expected type of the i-th output.

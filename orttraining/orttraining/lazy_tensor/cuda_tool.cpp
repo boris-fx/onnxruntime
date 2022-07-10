@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#ifdef USE_CUDA
 #include "cuda_tool.h"
 // CUDA
 #include "cuda.h"
@@ -53,3 +54,4 @@ void CUDAExecutionProviderPool::Initialize() {
 
 }  // namespace lazytensor
 }  // namespace onnxruntime
+#endif

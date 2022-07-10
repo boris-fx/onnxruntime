@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#ifdef USE_CUDA
 #include <string>
 #include <vector>
 #include <memory>
@@ -43,3 +44,4 @@ class CUDAExecutionProviderPool {
 
 }  // namespace lazytensor
 }  // namespace onnxruntime
+#endif
