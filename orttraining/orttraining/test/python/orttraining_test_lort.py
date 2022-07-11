@@ -1,26 +1,22 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-#import lazy_tensor_core as lt
-#import lazy_tensor_core.core.lazy_model as ltm
+# import lazy_tensor_core as lt
+# import lazy_tensor_core.core.lazy_model as ltm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch._lazy.ts_backend import init as init_ts_backend
+
 init_ts_backend()
 import onnxruntime as ort
-from onnxruntime.training.ortmodule.torch_cpp_extensions import aten_op_executor
 from onnxruntime.capi import _pybind_state as C
 
 # Make computation deterministic.
 torch.manual_seed(42)
 ort.set_seed(1)
 # Set up ORT as JIT's sub-executor.
-C.register_aten_op_executor(str(aten_op_executor.is_tensor_argument_address()),
-                            str(aten_op_executor.execute_aten_operator_address()))
 C.register_ort_as_torch_jit_executor()
-# Choose Pytorch JIT executor as LazyTensor backend.
-#lt._LAZYC._ltc_init_ts_backend()
 
 
 def run_Simple():
@@ -34,25 +30,24 @@ def run_Simple():
         return q
 
     def run(fun, device, x):
-        x = torch.tensor(x, device=device,
-                         dtype=torch.float32).requires_grad_()
+        x = torch.tensor(x, device=device, dtype=torch.float32).requires_grad_()
         y = fun(x)
         y.sum().backward()
         return x, y, x.grad
 
     # Beseline.
-    x, y, g_x = run(Foo, 'cpu', [-1.0, 2.0])
+    x, y, g_x = run(Foo, "cpu", [-1.0, 2.0])
     # ORT result.
-    x_new, y_new, g_x_new = run(Foo, 'lazy', [-1.0, 2.0])
+    x_new, y_new, g_x_new = run(Foo, "lazy", [-1.0, 2.0])
 
-    print('x:', x)
-    print('x_new:', x_new)
-    print('y:', y)
-    print('y_new:', y_new)
-    print('Done assert once')
-    assert torch.allclose(x.to('lazy'), x_new)
-    assert torch.allclose(y.to('lazy'), y_new)
-    assert torch.allclose(g_x.to('lazy'), g_x_new)
+    print("x:", x)
+    print("x_new:", x_new)
+    print("y:", y)
+    print("y_new:", y_new)
+    print("Done assert once")
+    assert torch.allclose(x.to("lazy"), x_new)
+    assert torch.allclose(y.to("lazy"), y_new)
+    assert torch.allclose(g_x.to("lazy"), g_x_new)
 
 
 def test_Simple():
@@ -90,7 +85,7 @@ def run_MNIST():
         y = y.to(device)
         output = model(x)
         loss = F.nll_loss(output, y)
-        #return loss
+        # return loss
         loss.backward()
         return loss, (param.grad for param in model.parameters())
 
@@ -99,23 +94,25 @@ def run_MNIST():
     model = Net()
 
     # Baseline.
-    loss, grads = run(model, 'cpu', x, y)
-    #loss = run(model, 'cpu', x, y)
+    loss, grads = run(model, "cpu", x, y)
+    # loss = run(model, 'cpu', x, y)
     # ORT result.
-    loss_new, grads_new = run(model, 'lazy', x, y)
-    #loss_new = run(model, 'lazy', x, y)
+    loss_new, grads_new = run(model, "lazy", x, y)
+    # loss_new = run(model, 'lazy', x, y)
 
-    print('MNIST result {}, {}, '.format(loss, loss_new))
-    assert torch.allclose(loss.to('lazy'), loss_new)
+    print("MNIST result {}, {}, ".format(loss, loss_new))
+    assert torch.allclose(loss.to("lazy"), loss_new)
     for g, g_new in zip(grads, grads_new):
-        #print(g, g_new)
-        assert torch.allclose(g.to('lazy'), g_new)
+        # print(g, g_new)
+        assert torch.allclose(g.to("lazy"), g_new)
+
 
 def test_MNIST():
     for _ in range(5):
         run_MNIST()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # The first run of Pytorch JIT is actual eager mode,
     # so, as a JIT sub-executor, ORT won't be unless we run
     # multiple times. Thus, in each test function, we repeat
