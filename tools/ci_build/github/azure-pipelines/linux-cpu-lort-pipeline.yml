@@ -21,7 +21,7 @@ jobs:
       Repository: onnxruntimecpubuildlortmode
 
   - task: CmdLine@2
-    displayName: 'build'
+    displayName: 'Build ORT for Python 3.9'
     inputs:
       script: |
         mkdir -p $HOME/.onnx
@@ -36,15 +36,15 @@ jobs:
           onnxruntimecpubuildlortmode \
             /opt/python/cp39-cp39/bin/python3.9 /onnxruntime_src/tools/ci_build/build.py \
               --build_dir /build --cmake_generator Ninja \
-              --config Debug Release \
+              --config Release \
               --skip_submodule_sync \
               --build_shared_lib \
               --parallel \
               --enable_lazy_tensor --enable_training --build_wheel --skip_test \
       workingDirectory: $(Build.SourcesDirectory)
 
-  - task: CmdLine@2
-    displayName: 'install ortmodule extension and test'
+  - task: CmdLine@3
+    displayName: 'Test LORT with Python 3.9'
     inputs:
       script: |
         mkdir -p $HOME/.onnx
@@ -58,7 +58,7 @@ jobs:
           -e BUILD_BUILDNUMBER \
           onnxruntimecpubuildlortmode \
             bash -c "export PYTHONPATH=/build/Release && \
-              /opt/python/cp39-cp39/bin/python3.9 -m pytest /onnxruntime_src/orttraining/orttraining/test/python/orttraining_test_lort.py \
+              /opt/python/cp39-cp39/bin/python3.9 -m pytest /onnxruntime_src/orttraining/orttraining/test/python/orttraining_test_lort.py"
       workingDirectory: $(Build.SourcesDirectory)
       condition: succeededOrFailed()
 
