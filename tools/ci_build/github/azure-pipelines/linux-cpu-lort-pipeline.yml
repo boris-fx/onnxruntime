@@ -58,8 +58,8 @@ jobs:
           -e BUILD_BUILDNUMBER \
           onnxruntimecpubuildlortmode \
             bash -c "
-              /opt/python/cp39-cp39/bin/python3.9 -m pip install -r $(Build.BinariesDirectory)/requirements.txt && \
-              /opt/python/cp39-cp39/bin/python3.9 -m pip install $(Build.BinariesDirectory)/Release/dist/*.whl && \
+              /opt/python/cp39-cp39/bin/python3.9 -m pip install -r /build/Release/requirements.txt && \
+              /opt/python/cp39-cp39/bin/python3.9 -m pip install /build/Release/Release/dist/*.whl && \
               /opt/python/cp39-cp39/bin/python3.9 /onnxruntime_src/orttraining/orttraining/test/python/orttraining_test_lort.py"
       workingDirectory: $(Build.SourcesDirectory)
       condition: succeededOrFailed()
