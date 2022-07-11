@@ -39,12 +39,6 @@ function GetFile {
   return $?
 }
 
-if [ ! -d "/opt/conda/bin" ]; then
-    PYTHON_EXES=("/opt/python/cp37-cp37m/bin/python3.7" "/opt/python/cp38-cp38/bin/python3.8" "/opt/python/cp39-cp39/bin/python3.9")
-else
-    PYTHON_EXES=("/opt/conda/bin/python")
-fi
-
 os_major_version=$(cat /etc/redhat-release | tr -dc '0-9.'|cut -d \. -f1)
 
 SYS_LONG_BIT=$(getconf LONG_BIT)
@@ -74,10 +68,12 @@ cd ninja-1.10.0
 cmake -Bbuild-cmake -H.
 cmake --build build-cmake
 mv ./build-cmake/ninja /usr/bin
+
 echo "Installing Node.js"
 GetFile https://nodejs.org/dist/v16.14.2/node-v16.14.2-linux-x64.tar.gz /tmp/src/node-v16.14.2-linux-x64.tar.gz
 tar --strip 1 -xf /tmp/src/node-v16.14.2-linux-x64.tar.gz -C /usr
 
+echo "Installing gradle"
 cd /tmp/src
 GetFile https://downloads.gradle-dn.com/distributions/gradle-6.3-bin.zip /tmp/src/gradle-6.3-bin.zip
 unzip /tmp/src/gradle-6.3-bin.zip
@@ -91,18 +87,18 @@ export ONNX_ML=1
 export CMAKE_ARGS="-DONNX_GEN_PB_TYPE_STUBS=OFF -DONNX_WERROR=OFF"
 
 cd /usr/local
-echo "Enter $PWD"
-echo "Clone Pytorch"
+echo "Cloning Pytorch"
 git clone --recursive https://github.com/wschin/pytorch.git
 cd pytorch
-echo "Enter $PWD"
-echo "Install Pytorch requirements"
+echo "Installing Pytorch requirements"
 git checkout lort
 /opt/python/cp39-cp39/bin/python3.9 -m pip install -r requirements.txt
-/opt/python/cp39-cp39/bin/python3.9 -m pip install flatbuffers
+/opt/python/cp39-cp39/bin/python3.9 -m pip install flatbuffers cerberus
+echo "Building and installing Pytorch"
 VERBOSE=1 BUILD_LAZY_TS_BACKEND=1 /opt/python/cp39-cp39/bin/python3.9 setup.py develop
 /opt/python/cp39-cp39/bin/python3.9 -c "import torch; print(f'Installed Pytorch: {torch.__version__}')"
 
+echo "Installing valgrind"
 cd /tmp/src
 GetFile 'https://sourceware.org/pub/valgrind/valgrind-3.16.1.tar.bz2' /tmp/src/valgrind-3.16.1.tar.bz2
 tar -jxvf valgrind-3.16.1.tar.bz2
