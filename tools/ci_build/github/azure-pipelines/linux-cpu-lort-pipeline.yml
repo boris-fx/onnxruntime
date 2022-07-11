@@ -43,7 +43,7 @@ jobs:
               --enable_lazy_tensor --enable_training --build_wheel --skip_test \
       workingDirectory: $(Build.SourcesDirectory)
 
-  - task: CmdLine@3
+  - task: CmdLine@2
     displayName: 'Test LORT with Python 3.9'
     inputs:
       script: |
