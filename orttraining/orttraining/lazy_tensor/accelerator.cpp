@@ -252,7 +252,7 @@ static std::string ExportToOnnx(
     const at::ArrayRef<c10::IValue>& args) {
 #ifdef USE_CUDA
   NvtxRange range(__func__);
-#endif USE_CUDA
+#endif
   // ONNX exporter modifies the graph in-place, so we
   // need to clone it to avoid interaction between
   // Pytorch's JIT mechanism and ONNX graph.
