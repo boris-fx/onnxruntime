@@ -57,7 +57,9 @@ jobs:
           -e NIGHTLY_BUILD \
           -e BUILD_BUILDNUMBER \
           onnxruntimecpubuildlortmode \
-            bash -c "export PYTHONPATH=/build/Release && \
+            bash -c "
+              export PYTHONPATH=/build/Release && \
+              /opt/python/cp39-cp39/bin/python3.9 -m pip install onnx \
               /opt/python/cp39-cp39/bin/python3.9 /onnxruntime_src/orttraining/orttraining/test/python/orttraining_test_lort.py"
       workingDirectory: $(Build.SourcesDirectory)
       condition: succeededOrFailed()
