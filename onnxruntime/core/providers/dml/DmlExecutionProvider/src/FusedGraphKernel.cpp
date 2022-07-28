@@ -142,10 +142,13 @@ namespace Dml
                 executionFlags |= DML_EXECUTION_FLAG_DISABLE_META_COMMANDS;
             }
 
-            ORT_THROW_IF_FAILED(device1->CompileGraph(
+            auto hResult = device1->CompileGraph(
                 &dmlGraphDesc,
                 executionFlags,
-                IID_PPV_ARGS(&m_compiledExecutionPlanOperator)));
+                IID_PPV_ARGS(&m_compiledExecutionPlanOperator));
+            if (hResult != S_OK) {
+                printf("graph compilation failed. error code: %x\n", hResult);
+            }
 
             // Allocate a persistent resource and initialize the operator
             UINT64 persistentResourceSize = m_compiledExecutionPlanOperator->GetBindingProperties().PersistentResourceSize;

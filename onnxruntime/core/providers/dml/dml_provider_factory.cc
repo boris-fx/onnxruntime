@@ -28,13 +28,17 @@ namespace onnxruntime {
 struct DMLProviderFactory : IExecutionProviderFactory {
   DMLProviderFactory(IDMLDevice* dml_device,
                      ID3D12CommandQueue* cmd_queue) : dml_device_(dml_device),
-                                                      cmd_queue_(cmd_queue) {}
+                                                      cmd_queue_(cmd_queue) {
+    SetMetacommandsEnabled(CheckMetacommandsSupported());
+  }
   ~DMLProviderFactory() override {}
 
   std::unique_ptr<IExecutionProvider> CreateProvider() override;
   void SetDefaultRoundingMode(AllocatorRoundingMode rounding_mode);
 
   void SetMetacommandsEnabled(bool metacommands_enabled);
+
+  bool CheckMetacommandsSupported();
 
  private:
   ComPtr<IDMLDevice> dml_device_{};
@@ -55,6 +59,60 @@ void DMLProviderFactory::SetDefaultRoundingMode(AllocatorRoundingMode rounding_m
 
 void DMLProviderFactory::SetMetacommandsEnabled(bool metacommands_enabled) {
   metacommands_enabled_ = metacommands_enabled;
+}
+
+bool DMLProviderFactory::CheckMetacommandsSupported() {
+
+  ComPtr<ID3D12Device5> device;
+  GRAPHICS_THROW_IF_FAILED(cmd_queue_->GetDevice(IID_GRAPHICS_PPV_ARGS(device.GetAddressOf())));
+
+  unsigned int numMetaCommands;
+  GRAPHICS_THROW_IF_FAILED(device->EnumerateMetaCommands(&numMetaCommands, nullptr));
+
+  printf("num meta commands: %u\n", numMetaCommands);
+
+  D3D12_META_COMMAND_DESC* metaCommandDescriptions = new D3D12_META_COMMAND_DESC[numMetaCommands];
+  GRAPHICS_THROW_IF_FAILED(device->EnumerateMetaCommands(&numMetaCommands, metaCommandDescriptions));
+
+  for (unsigned int i =0; i < numMetaCommands; i++) {
+    auto& d = metaCommandDescriptions[i];
+    printf("- %ls\n", d.Name);
+    OLECHAR* guidString;
+    StringFromCLSID(d.Id, &guidString);
+    printf("  guid: %ls\n", guidString);
+
+    D3D12_META_COMMAND_PARAMETER_STAGE stages[] = {
+      D3D12_META_COMMAND_PARAMETER_STAGE_CREATION,
+      D3D12_META_COMMAND_PARAMETER_STAGE_INITIALIZATION,
+      D3D12_META_COMMAND_PARAMETER_STAGE_EXECUTION
+    };
+
+    std::string stageNames[] = { "creation", "initialization", "execution" };
+
+    for (int j = 0; j < 3; j++) {
+      auto paramStage = stages[j];
+
+      unsigned int numParams;
+      GRAPHICS_THROW_IF_FAILED(device->EnumerateMetaCommandParameters(d.Id, paramStage, nullptr, &numParams, nullptr));
+      printf("  - params for stage %s: %u\n", stageNames[j].c_str(), numParams);
+
+      D3D12_META_COMMAND_PARAMETER_DESC* paramDescriptions = new D3D12_META_COMMAND_PARAMETER_DESC[numParams];
+      GRAPHICS_THROW_IF_FAILED(device->EnumerateMetaCommandParameters(d.Id, paramStage, nullptr, &numParams, paramDescriptions));
+
+      // print the name of every parameter..
+      // for (unsigned int j=0; j<numParams; j++) {
+        // auto& d = paramDescriptions[j];
+        // printf("  - %ls\n", d.Name);
+      // }
+
+      delete[] paramDescriptions;
+    }
+  }
+
+  delete[] metaCommandDescriptions;
+
+  // just disable..
+  return false;
 }
 
 std::shared_ptr<IExecutionProviderFactory> CreateExecutionProviderFactory_DML(IDMLDevice* dml_device,
