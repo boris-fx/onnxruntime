@@ -240,6 +240,7 @@ Status Environment::Initialize(std::unique_ptr<logging::LoggingManager> logging_
       domainToVersionRangeInstance.AddDomainToVersion(onnxruntime::kPytorchAtenDomain, 1, 1);
 #ifdef USE_DML
       domainToVersionRangeInstance.AddDomainToVersion(onnxruntime::kMSDmlDomain, 1, 1);
+      domainToVersionRangeInstance.AddDomainToVersion("bfx", 1, 1);
 #endif
 // Register contributed schemas.
 // The corresponding kernels are registered inside the appropriate execution provider.

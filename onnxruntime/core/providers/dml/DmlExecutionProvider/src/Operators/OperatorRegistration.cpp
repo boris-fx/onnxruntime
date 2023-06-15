@@ -15,6 +15,15 @@
 #include <wrl/implements.h>
 #include <mutex>
 
+#include "bfx/bfx_ops.h"
+#include "bfx/deform_conv2d_im2cols.h"
+#include "bfx/warp_flow.h"
+#include "bfx/second_order_deform_offset_mask.h"
+#include "bfx/grid_sample.h"
+#include "bfx/make_multiscale_upres_sample_grid.h"
+#include "bfx/rle_encode.h"
+#include "bfx/rle_decode.h"
+
 using namespace Microsoft::WRL;
 
 #include "core/framework/TensorSeq.h"
@@ -529,7 +538,7 @@ DML_OP_EXTERN_CREATION_FUNCTION(QAttention);
 DML_OP_EXTERN_CREATION_FUNCTION(Attention);
 DML_OP_EXTERN_CREATION_FUNCTION(MultiHeadAttention);
 DML_OP_EXTERN_CREATION_FUNCTION(GroupQueryAttention);
-DML_OP_EXTERN_CREATION_FUNCTION(NonZero);
+// DML_OP_EXTERN_CREATION_FUNCTION(NonZero);
 DML_OP_EXTERN_CREATION_FUNCTION(QuickGelu);
 DML_OP_EXTERN_CREATION_FUNCTION(BitwiseAnd);
 DML_OP_EXTERN_CREATION_FUNCTION(BitwiseOr);
@@ -641,7 +650,7 @@ constexpr static std::array<SupportedTensorDataTypes, 4> supportedTypeListQAtten
 constexpr static std::array<SupportedTensorDataTypes, 2> supportedTypeListAttention = {SupportedTensorDataTypes::Float16to32, SupportedTensorDataTypes::Int32};
 constexpr static std::array<SupportedTensorDataTypes, 2> supportedTypeListRotaryEmbedding = {SupportedTensorDataTypes::Float16to32, SupportedTensorDataTypes::Int64};
 constexpr static std::array<SupportedTensorDataTypes, 2> supportedTypeListGroupNorm = {SupportedTensorDataTypes::Float16to32, SupportedTensorDataTypes::Float16to32};
-constexpr static std::array<SupportedTensorDataTypes, 1> supportedTypeListNonZero = {SupportedTensorDataTypes::Float16to32 | SupportedTensorDataTypes::Ints8Bit | SupportedTensorDataTypes::Ints16Bit | SupportedTensorDataTypes::Ints32Bit | SupportedTensorDataTypes::Bool};
+// constexpr static std::array<SupportedTensorDataTypes, 1> supportedTypeListNonZero = {SupportedTensorDataTypes::Float16to32 | SupportedTensorDataTypes::Ints8Bit | SupportedTensorDataTypes::Ints16Bit | SupportedTensorDataTypes::Ints32Bit | SupportedTensorDataTypes::Bool};
 constexpr static std::array<SupportedTensorDataTypes, 2> supportedTypeListMatMulNBits = {SupportedTensorDataTypes::Float16to32, SupportedTensorDataTypes::UInt8};
 
 constexpr static std::array<SupportedTensorDataTypes, 3> supportedTypeListQLinearMatMul = {
@@ -1102,8 +1111,8 @@ constexpr static OperatorRegistrationInformation operatorRegistrationInformation
     {REG_INFO(      7,  Size,                               typeNameSize,                   supportedTypeListSize,                  DmlGraphSupport::NotSupported)},
     {REG_INFO(     13,  Size,                               typeNameSize,                   supportedTypeListSize,                  DmlGraphSupport::NotSupported)},
     {REG_INFO(     19,  Size,                               typeNameSize,                   supportedTypeListSize,                  DmlGraphSupport::NotSupported)},
-    {REG_INFO_DYNAMIC_OUTPUTS( 9,  NonZero,                 typeNameListDefault,            supportedTypeListNonZero,               DmlGraphSupport::NotSupported)},
-    {REG_INFO_DYNAMIC_OUTPUTS(13,  NonZero,                 typeNameListDefault,            supportedTypeListNonZero,               DmlGraphSupport::NotSupported)},
+    // {REG_INFO_DYNAMIC_OUTPUTS( 9,  NonZero,                 typeNameListDefault,            supportedTypeListNonZero,               DmlGraphSupport::NotSupported)},
+    // {REG_INFO_DYNAMIC_OUTPUTS(13,  NonZero,                 typeNameListDefault,            supportedTypeListNonZero,               DmlGraphSupport::NotSupported)},
 
     // DmlFused operators
     {REG_INFO_MSDML(1,  DmlFusedConv,                       typeNameListDefault,            supportedTypeListFloat16to32,           DmlGraphSupport::Supported)},
@@ -1336,6 +1345,16 @@ void RegisterDmlOperators(IMLOperatorRegistry* registry)
     GpuDFTOperatorFactory::RegisterDFTKernel(registry, 20);
     DmlSTFTOperatorFactory::RegisterSTFTKernel(registry);
     DmlGridSampleOperatorFactory::RegisterGridSampleKernel(registry);
+
+    // register all custom BFX ops
+    bfx_ops::register_operator_kernel<bfx_ops::deform_conv2d_im2cols::op>(registry);
+    bfx_ops::register_operator_kernel<bfx_ops::warp_flow::op>(registry);
+    bfx_ops::register_operator_kernel<bfx_ops::second_order_deform_offset_mask::op>(registry);
+    bfx_ops::register_operator_kernel<bfx_ops::grid_sample::op>(registry);
+    bfx_ops::register_operator_kernel<bfx_ops::make_multiscale_upres_sample_grid::op>(registry);
+
+    bfx_ops::register_operator_kernel2<bfx_ops::rle_encode>(registry);
+    bfx_ops::register_operator_kernel2<bfx_ops::rle_decode>(registry);
 }
 
 } // namespace Dml

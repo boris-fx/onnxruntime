@@ -122,7 +122,10 @@ OperatorFieldVariant CreateAttribute(
             OperatorFieldTypes::UIntArray data;
             if (attributeDesc != nullptr)
             {
-                data.assign(attributeDesc->val_as_UIntArray()->data()->begin(), attributeDesc->val_as_UIntArray()->data()->end());
+                #pragma message("WARNING: Code changed in the BFX fork of ORT to fix narrowing conversion warnings, to fix vs2019 compilation. TODO: merge into upstream?")
+                // data.assign(attributeDesc->val_as_UIntArray()->data()->begin(), attributeDesc->val_as_UIntArray()->data()->end());
+                const auto s = flatbuffers::make_span(*attributeDesc->val_as_UIntArray()->data());
+                data.assign(s.begin(), s.end());
             }
             return data;
         }
@@ -131,7 +134,10 @@ OperatorFieldVariant CreateAttribute(
             OperatorFieldTypes::IntArray data;
             if (attributeDesc != nullptr)
             {
-                data.assign(attributeDesc->val_as_IntArray()->data()->begin(), attributeDesc->val_as_IntArray()->data()->end());
+                #pragma message("WARNING: Code changed in the BFX fork of ORT to fix narrowing conversion warnings, to fix vs2019 compilation. TODO: merge into upstream?")
+                // data.assign(attributeDesc->val_as_IntArray()->data()->begin(), attributeDesc->val_as_IntArray()->data()->end());
+                const auto s = flatbuffers::make_span(*attributeDesc->val_as_IntArray()->data());
+                data.assign(s.begin(), s.end());
             }
             return data;
         }
@@ -140,7 +146,10 @@ OperatorFieldVariant CreateAttribute(
             OperatorFieldTypes::FloatArray data;
             if (attributeDesc != nullptr)
             {
-                data.assign(attributeDesc->val_as_FloatArray()->data()->begin(), attributeDesc->val_as_FloatArray()->data()->end());
+                #pragma message("WARNING: Code changed in the BFX fork of ORT to fix narrowing conversion warnings, to fix vs2019 compilation. TODO: merge into upstream?")
+                // data.assign(attributeDesc->val_as_FloatArray()->data()->begin(), attributeDesc->val_as_FloatArray()->data()->end());
+                const auto s = flatbuffers::make_span(*attributeDesc->val_as_FloatArray()->data());
+                data.assign(s.begin(), s.end());
             }
             return data;
         }	
@@ -200,7 +209,14 @@ OperatorFieldTypes::TensorDesc CreateBufferTensorDesc(
     {
         bufferTensorDesc.flags = DML_TENSOR_FLAG_OWNED_BY_DML;
     }
-    bufferTensorDesc.sizes.assign(tensorDesc->sizes()->begin(), tensorDesc->sizes()->end());
+
+    {
+        #pragma message("WARNING: Code changed in the BFX fork of ORT to fix narrowing conversion warnings, to fix vs2019 compilation. TODO: merge into upstream?")
+        // bufferTensorDesc.sizes.assign(tensorDesc->sizes()->begin(), tensorDesc->sizes()->end());
+        const auto s = flatbuffers::make_span(tensorDesc->sizes());
+        bufferTensorDesc.sizes.assign(s.begin(), s.end());
+    }
+
     if (flatbuffers::IsFieldPresent(tensorDesc, dml::ir::DmlBufferTensorDesc::VT_STRIDES))
     {
         bufferTensorDesc.strides.emplace(tensorDesc->strides()->begin(), tensorDesc->strides()->end());

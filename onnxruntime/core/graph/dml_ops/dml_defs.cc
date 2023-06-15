@@ -337,6 +337,96 @@ void RegisterDmlSchemas() {
             shapes,
             *ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape());
       });
+
+
+  // BFX CUSTOM OPS
+
+  MS_DML_OPERATOR_SCHEMA(deform_conv2d_im2cols)
+      .SetDomain("bfx")
+      .SinceVersion(1)
+      .Input(0, "input", "", "T")
+      .Input(1, "offset", "", "T")
+      .Input(2, "mask", "", "T")
+      .Output(0, "output", "", "T")
+      .TypeConstraint("T", {"tensor(float16)", "tensor(float)"}, "")
+      .Attr("dil_h", "", onnx::AttributeProto::INT)
+      .Attr("dil_w", "", onnx::AttributeProto::INT)
+      .Attr("kernel_h", "", onnx::AttributeProto::INT)
+      .Attr("kernel_w", "", onnx::AttributeProto::INT)
+      .Attr("pad_h", "", onnx::AttributeProto::INT)
+      .Attr("pad_w", "", onnx::AttributeProto::INT)
+      .Attr("stride_h", "", onnx::AttributeProto::INT)
+      .Attr("stride_w", "", onnx::AttributeProto::INT)
+      .Attr("n_offset_grps", "", onnx::AttributeProto::INT)
+      .Attr("use_mask", "", onnx::AttributeProto::INT)
+      .Attr("plugin_namespace", "", onnx::AttributeProto::STRING)
+      .Attr("plugin_version", "", onnx::AttributeProto::STRING);
+
+  MS_DML_OPERATOR_SCHEMA(warp_flow)
+      .SetDomain("bfx")
+      .SinceVersion(1)
+      .Input(0, "input", "", "T")
+      .Input(1, "flow", "", "T")
+      .Output(0, "output", "", "T")
+      .TypeConstraint("T", {"tensor(float16)", "tensor(float)"}, "")
+      .Attr("interpolation_mode", "", onnx::AttributeProto::INT)
+      .Attr("padding_mode", "", onnx::AttributeProto::INT)
+      .Attr("align_corners", "", onnx::AttributeProto::INT)
+      .Attr("plugin_namespace", "", onnx::AttributeProto::STRING)
+      .Attr("plugin_version", "", onnx::AttributeProto::STRING);
+
+  MS_DML_OPERATOR_SCHEMA(second_order_deform_alignment_make_offset_and_mask)
+      .SetDomain("bfx")
+      .SinceVersion(1)
+      .Input(0, "feats", "", "T")
+      .Input(1, "flow_1", "", "T")
+      .Input(2, "flow_2", "", "T")
+      .Output(0, "out_offset", "", "T")
+      .Output(1, "out_mask", "", "T")
+      .TypeConstraint("T", {"tensor(float16)", "tensor(float)"}, "")
+      .Attr("max_residue_magnitude", "", onnx::AttributeProto::FLOAT)
+      .Attr("plugin_namespace", "", onnx::AttributeProto::STRING)
+      .Attr("plugin_version", "", onnx::AttributeProto::STRING);
+
+  MS_DML_OPERATOR_SCHEMA(grid_sample)
+      .SetDomain("bfx")
+      .SinceVersion(1)
+      .Input(0, "image", "", "T")
+      .Input(1, "grid", "", "tensor(float)") // grid must be full float!
+      .Output(0, "out", "", "T")
+      .TypeConstraint("T", {"tensor(float16)", "tensor(float)"}, "")
+      .Attr("interpolation_mode", "", onnx::AttributeProto::INT)
+      .Attr("padding_mode", "", onnx::AttributeProto::INT)
+      .Attr("align_corners", "", onnx::AttributeProto::INT)
+      .Attr("plugin_namespace", "", onnx::AttributeProto::STRING)
+      .Attr("plugin_version", "", onnx::AttributeProto::STRING);
+
+  MS_DML_OPERATOR_SCHEMA(make_multiscale_upres_sample_grid)
+      .SetDomain("bfx")
+      .SinceVersion(1)
+      .Input(0, "exec_config", "", "tensor(float)") // config and output must be full float
+      .Output(0, "out", "", "tensor(float)")
+      .Attr("n", "", onnx::AttributeProto::INT)
+      .Attr("tile_height", "", onnx::AttributeProto::INT)
+      .Attr("tile_width", "", onnx::AttributeProto::INT)
+      .Attr("plugin_namespace", "", onnx::AttributeProto::STRING)
+      .Attr("plugin_version", "", onnx::AttributeProto::STRING);
+
+  MS_DML_OPERATOR_SCHEMA(rle_encode)
+      .SetDomain("bfx")
+      .SinceVersion(1)
+      .Input(0, "x", "", "tensor(int32)")
+      .Output(0, "enc_n", "", "tensor(int32)")
+      .Output(1, "enc_d", "", "tensor(int32)")
+      .Output(2, "enc_i", "", "tensor(int32)");
+
+  MS_DML_OPERATOR_SCHEMA(rle_decode)
+      .SetDomain("bfx")
+      .SinceVersion(1)
+      .Input(0, "enc_n", "", "tensor(int32)")
+      .Input(1, "enc_d", "", "tensor(int32)")
+      .Input(2, "enc_i", "", "tensor(int32)")
+      .Output(0, "x", "", "tensor(int32)");
 }
 }  // namespace dml
 }  // namespace onnxruntime
