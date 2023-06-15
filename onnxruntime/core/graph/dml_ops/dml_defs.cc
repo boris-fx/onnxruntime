@@ -337,6 +337,26 @@ void RegisterDmlSchemas() {
             shapes,
             *ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape());
       });
+
+  MS_DML_OPERATOR_SCHEMA(deform_conv2d_im2cols)
+      .SetDomain("bfx")
+      .SinceVersion(1)
+      .Input(0, "input", "", "T")
+      .Input(1, "offset", "", "T")
+      .Input(2, "mask", "", "T")
+      .Output(0, "output", "", "T")
+      .TypeConstraint("T", {"tensor(float16)", "tensor(float)"}, "")
+      .Attr("dil_h", "", onnx::AttributeProto::INT)
+      .Attr("dil_w", "", onnx::AttributeProto::INT)
+      .Attr("kernel_h", "", onnx::AttributeProto::INT)
+      .Attr("kernel_w", "", onnx::AttributeProto::INT)
+      .Attr("pad_h", "", onnx::AttributeProto::INT)
+      .Attr("pad_w", "", onnx::AttributeProto::INT)
+      .Attr("stride_h", "", onnx::AttributeProto::INT)
+      .Attr("stride_w", "", onnx::AttributeProto::INT)
+      .Attr("n_offset_grps", "", onnx::AttributeProto::INT)
+      .Attr("use_mask", "", onnx::AttributeProto::INT);
+
 }
 }  // namespace dml
 }  // namespace onnxruntime

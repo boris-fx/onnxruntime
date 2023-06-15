@@ -41,6 +41,9 @@ if "%1" == "DEBUG" (
     dxc.exe ..\Shaders\grid_sample.hlsl -E GridSample -T cs_6_2 -DTBUFFER1=double -DTBUFFER2=double -enable-16bit-types -Zi -Od -Qembed_debug -Fh grid_sample_double_double.h
     dxc.exe ..\Shaders\grid_sample.hlsl -E GridSample -T cs_6_2 -DTBUFFER1=bool -DTBUFFER2=double -enable-16bit-types -Zi -Od -Qembed_debug -Fh grid_sample_bool_double.h
 
+    dxc.exe ..\Shaders\deform_conv2d_im2cols.hlsl -E deform_conv2d_im2cols -T cs_6_2 -Dscalar_t=float     -enable-16bit-types -Zi -Od -Qembed_debug -Fh deform_conv2d_im2cols_fp32.h
+    dxc.exe ..\Shaders\deform_conv2d_im2cols.hlsl -E deform_conv2d_im2cols -T cs_6_2 -Dscalar_t=float16_t -enable-16bit-types -Zi -Od -Qembed_debug -Fh deform_conv2d_im2cols_fp16.h
+
 ) else (
     fxc.exe ..\Shaders\stockham.hlsl -E DFT -T cs_5_0 /DTBUFFER=float /O3 /Qstrip_reflect /Qstrip_debug /Qstrip_rootsignature /Qstrip_priv /Fh stockham.h
     dxc.exe ..\Shaders\stockham.hlsl -E DFT -T cs_6_2 -DTBUFFER=float16_t -enable-16bit-types -O3 -Qstrip_reflect -Qstrip_debug -Qstrip_rootsignature -Fh stockham_fp16.h
@@ -81,4 +84,6 @@ if "%1" == "DEBUG" (
     dxc.exe ..\Shaders\grid_sample.hlsl -E GridSample -T cs_6_2 -DTBUFFER1=double -DTBUFFER2=double -enable-16bit-types -O3 -Qstrip_reflect -Qstrip_debug -Qstrip_rootsignature -Fh grid_sample_double_double.h
     dxc.exe ..\Shaders\grid_sample.hlsl -E GridSample -T cs_6_2 -DTBUFFER1=bool -DTBUFFER2=double -enable-16bit-types -O3 -Qstrip_reflect -Qstrip_debug -Qstrip_rootsignature -Fh grid_sample_bool_double.h
 
+    dxc.exe ..\Shaders\deform_conv2d_im2cols.hlsl -E deform_conv2d_im2cols -T cs_6_2 -Dscalar_t=float                          -O3 -Qstrip_reflect -Qstrip_debug -Qstrip_rootsignature -Fh deform_conv2d_im2cols_fp32.h
+    dxc.exe ..\Shaders\deform_conv2d_im2cols.hlsl -E deform_conv2d_im2cols -T cs_6_2 -Dscalar_t=float16_t -enable-16bit-types  -O3 -Qstrip_reflect -Qstrip_debug -Qstrip_rootsignature -Fh deform_conv2d_im2cols_fp16.h
 )
