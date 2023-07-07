@@ -5,7 +5,6 @@
 #include "DmlDFT.h"
 #include "DmlSTFT.h"
 #include "DmlGridSample.h"
-#include "DmlDeformConv2d_im2cols.h"
 #include "OperatorRegistration.h"
 #include "core/providers/dml/OperatorAuthorHelper/MLOperatorAuthorHelper.h"
 #include "core/providers/dml/OperatorAuthorHelper/OperatorVersions.h"
@@ -15,6 +14,11 @@
 #include <wrl/client.h>
 #include <wrl/implements.h>
 #include <mutex>
+
+#include "bfx/bfx_ops.h"
+#include "bfx/deform_conv2d_im2cols.h"
+#include "bfx/warp_flow.h"
+#include "bfx/second_order_deform_offset_mask.h"
 
 using namespace Microsoft::WRL;
 
@@ -1131,7 +1135,11 @@ void RegisterDmlOperators(IMLOperatorRegistry* registry)
     GpuDFTOperatorFactory::RegisterDFTKernel(registry);
     DmlSTFTOperatorFactory::RegisterSTFTKernel(registry);
     DmlGridSampleOperatorFactory::RegisterGridSampleKernel(registry);
-    DmlDeformConv2d_im2cols_operatorFactory::RegisterDeformConv2d_im2cols_Kernel(registry);
+
+    // register all custom BFX ops
+    bfx_ops::register_operator_kernel<bfx_ops::deform_conv2d_im2cols::op>(registry);
+    bfx_ops::register_operator_kernel<bfx_ops::warp_flow::op>(registry);
+    bfx_ops::register_operator_kernel<bfx_ops::second_order_deform_offset_mask::op>(registry);
 }
 
 } // namespace Dml

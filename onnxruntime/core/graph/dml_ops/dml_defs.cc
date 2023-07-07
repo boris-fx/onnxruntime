@@ -338,6 +338,9 @@ void RegisterDmlSchemas() {
             *ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape());
       });
 
+
+  // BFX CUSTOM OPS
+
   MS_DML_OPERATOR_SCHEMA(deform_conv2d_im2cols)
       .SetDomain("bfx")
       .SinceVersion(1)
@@ -355,7 +358,35 @@ void RegisterDmlSchemas() {
       .Attr("stride_h", "", onnx::AttributeProto::INT)
       .Attr("stride_w", "", onnx::AttributeProto::INT)
       .Attr("n_offset_grps", "", onnx::AttributeProto::INT)
-      .Attr("use_mask", "", onnx::AttributeProto::INT);
+      .Attr("use_mask", "", onnx::AttributeProto::INT)
+      .Attr("plugin_namespace", "", onnx::AttributeProto::STRING)
+      .Attr("plugin_version", "", onnx::AttributeProto::STRING);
+
+  MS_DML_OPERATOR_SCHEMA(warp_flow)
+      .SetDomain("bfx")
+      .SinceVersion(1)
+      .Input(0, "input", "", "T")
+      .Input(1, "flow", "", "T")
+      .Output(0, "output", "", "T")
+      .TypeConstraint("T", {"tensor(float16)", "tensor(float)"}, "")
+      .Attr("interpolation_mode", "", onnx::AttributeProto::INT)
+      .Attr("padding_mode", "", onnx::AttributeProto::INT)
+      .Attr("align_corners", "", onnx::AttributeProto::INT)
+      .Attr("plugin_namespace", "", onnx::AttributeProto::STRING)
+      .Attr("plugin_version", "", onnx::AttributeProto::STRING);
+
+  MS_DML_OPERATOR_SCHEMA(second_order_deform_alignment_make_offset_and_mask)
+      .SetDomain("bfx")
+      .SinceVersion(1)
+      .Input(0, "feats", "", "T")
+      .Input(1, "flow_1", "", "T")
+      .Input(2, "flow_2", "", "T")
+      .Output(0, "out_offset", "", "T")
+      .Output(1, "out_mask", "", "T")
+      .TypeConstraint("T", {"tensor(float16)", "tensor(float)"}, "")
+      .Attr("max_residue_magnitude", "", onnx::AttributeProto::FLOAT)
+      .Attr("plugin_namespace", "", onnx::AttributeProto::STRING)
+      .Attr("plugin_version", "", onnx::AttributeProto::STRING);
 
 }
 }  // namespace dml
