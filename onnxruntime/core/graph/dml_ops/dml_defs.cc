@@ -388,6 +388,30 @@ void RegisterDmlSchemas() {
       .Attr("plugin_namespace", "", onnx::AttributeProto::STRING)
       .Attr("plugin_version", "", onnx::AttributeProto::STRING);
 
+  MS_DML_OPERATOR_SCHEMA(grid_sample)
+      .SetDomain("bfx")
+      .SinceVersion(1)
+      .Input(0, "image", "", "T")
+      .Input(1, "grid", "", "tensor(float)") // grid must be full float!
+      .Output(0, "out", "", "T")
+      .TypeConstraint("T", {"tensor(float16)", "tensor(float)"}, "")
+      .Attr("interpolation_mode", "", onnx::AttributeProto::INT)
+      .Attr("padding_mode", "", onnx::AttributeProto::INT)
+      .Attr("align_corners", "", onnx::AttributeProto::INT)
+      .Attr("plugin_namespace", "", onnx::AttributeProto::STRING)
+      .Attr("plugin_version", "", onnx::AttributeProto::STRING);
+
+  MS_DML_OPERATOR_SCHEMA(make_multiscale_upres_sample_grid)
+      .SetDomain("bfx")
+      .SinceVersion(1)
+      .Input(0, "exec_config", "", "tensor(float)") // config and output must be full float
+      .Output(0, "out", "", "tensor(float)")
+      .Attr("n", "", onnx::AttributeProto::INT)
+      .Attr("tile_height", "", onnx::AttributeProto::INT)
+      .Attr("tile_width", "", onnx::AttributeProto::INT)
+      .Attr("plugin_namespace", "", onnx::AttributeProto::STRING)
+      .Attr("plugin_version", "", onnx::AttributeProto::STRING);
+
 }
 }  // namespace dml
 }  // namespace onnxruntime

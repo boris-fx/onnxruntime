@@ -19,6 +19,8 @@
 #include "bfx/deform_conv2d_im2cols.h"
 #include "bfx/warp_flow.h"
 #include "bfx/second_order_deform_offset_mask.h"
+#include "bfx/grid_sample.h"
+#include "bfx/make_multiscale_upres_sample_grid.h"
 
 using namespace Microsoft::WRL;
 
@@ -1140,6 +1142,8 @@ void RegisterDmlOperators(IMLOperatorRegistry* registry)
     bfx_ops::register_operator_kernel<bfx_ops::deform_conv2d_im2cols::op>(registry);
     bfx_ops::register_operator_kernel<bfx_ops::warp_flow::op>(registry);
     bfx_ops::register_operator_kernel<bfx_ops::second_order_deform_offset_mask::op>(registry);
+    bfx_ops::register_operator_kernel<bfx_ops::grid_sample::op>(registry);
+    bfx_ops::register_operator_kernel<bfx_ops::make_multiscale_upres_sample_grid::op>(registry);
 }
 
 } // namespace Dml
