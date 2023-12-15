@@ -1,0 +1,10 @@
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+    <noInheritable></noInheritable>
+    <assemblyIdentity
+        type="win32"
+        name="bfx_ml.ort_dml_deps.runtime"
+        version="1.0.0.0" processorArchitecture="amd64">
+    </assemblyIdentity>
+    <file name="DirectML.dll" hash="" hashalg="SHA1"></file>
+    <file name="onnxruntime.dll" hash="" hashalg="SHA1"></file>
+</assembly>

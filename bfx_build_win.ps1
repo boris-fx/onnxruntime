@@ -19,5 +19,12 @@ Copy-Item .\build\Windows\Release\Release\onnxruntime_providers_shared.lib .\bui
 Copy-Item .\build\Windows\Release\Release\DirectML.dll .\build\dist_release\lib\.
 Copy-Item -r .\include .\build\dist_release\.
 
+# generate manifest for libraries with DLL hashes
+Copy-Item bfx_ml.ort_dml_deps.runtime.manifest.in  .\build\dist_release\lib\.
+Push-Location .\build\dist_release\lib
+mt.exe -manifest bfx_ml.ort_dml_deps.runtime.manifest.in -hashupdate -out:bfx_ml.ort_dml_deps.runtime.manifest
+Remove-Item bfx_ml.ort_dml_deps.runtime.manifest.in
+Pop-Location
+
 # to copy libraries to consuming binary dir!
 # cp .\build\dist_release\lib\*.dll $env:BFX_ROOT/ai/build/.
