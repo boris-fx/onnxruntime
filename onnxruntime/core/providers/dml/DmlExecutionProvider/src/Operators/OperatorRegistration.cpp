@@ -21,6 +21,8 @@
 #include "bfx/second_order_deform_offset_mask.h"
 #include "bfx/grid_sample.h"
 #include "bfx/make_multiscale_upres_sample_grid.h"
+#include "bfx/rle_encode.h"
+#include "bfx/rle_decode.h"
 
 using namespace Microsoft::WRL;
 
@@ -1144,6 +1146,9 @@ void RegisterDmlOperators(IMLOperatorRegistry* registry)
     bfx_ops::register_operator_kernel<bfx_ops::second_order_deform_offset_mask::op>(registry);
     bfx_ops::register_operator_kernel<bfx_ops::grid_sample::op>(registry);
     bfx_ops::register_operator_kernel<bfx_ops::make_multiscale_upres_sample_grid::op>(registry);
+
+    bfx_ops::register_operator_kernel2<bfx_ops::rle_encode>(registry);
+    bfx_ops::register_operator_kernel2<bfx_ops::rle_decode>(registry);
 }
 
 } // namespace Dml

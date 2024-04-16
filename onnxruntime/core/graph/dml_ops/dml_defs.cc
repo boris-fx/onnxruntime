@@ -412,6 +412,21 @@ void RegisterDmlSchemas() {
       .Attr("plugin_namespace", "", onnx::AttributeProto::STRING)
       .Attr("plugin_version", "", onnx::AttributeProto::STRING);
 
+  MS_DML_OPERATOR_SCHEMA(rle_encode)
+      .SetDomain("bfx")
+      .SinceVersion(1)
+      .Input(0, "x", "", "tensor(int32)")
+      .Output(0, "enc_n", "", "tensor(int32)")
+      .Output(1, "enc_d", "", "tensor(int32)")
+      .Output(2, "enc_i", "", "tensor(int32)");
+
+  MS_DML_OPERATOR_SCHEMA(rle_decode)
+      .SetDomain("bfx")
+      .SinceVersion(1)
+      .Input(0, "enc_n", "", "tensor(int32)")
+      .Input(1, "enc_d", "", "tensor(int32)")
+      .Input(2, "enc_i", "", "tensor(int32)")
+      .Output(0, "x", "", "tensor(int32)");
 }
 }  // namespace dml
 }  // namespace onnxruntime

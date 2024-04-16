@@ -55,26 +55,40 @@ STDMETHOD(InferOutputShapes)(IMLOperatorShapeInferenceContext* context) noexcept
 };
 
 template <typename op_type>
-void register_operator_kernel(IMLOperatorRegistry* registry)
+struct shape_inferrer2 : public WRL::Base<IMLOperatorShapeInferrer> {
+STDMETHOD(InferOutputShapes)(IMLOperatorShapeInferenceContext* context) noexcept
 {
+    try
+    {
+        auto shapes = op_type::infer_shapes(context);
+        for (uint32_t i =0; i < shapes.size(); i++) {
+            ORT_THROW_IF_FAILED(context->SetOutputTensorShape(i, onnxruntime::narrow<uint32_t>(shapes[i].size()), shapes[i].data()));
+        }
+    }
+    catch (...)
+    {
+        return E_FAIL;
+    }
+
+    return S_OK;
+}
+};
+
+void register_operator_kernel(IMLOperatorRegistry* registry, const char* opName, IMLOperatorKernelFactory* kernelFactory, IMLOperatorShapeInferrer* shapeInferrer) {
     MLOperatorKernelDescription kernelDescription = {};
     kernelDescription.domain = "bfx";
-    kernelDescription.name = op_type::op_name;
+    kernelDescription.name = opName;
     kernelDescription.minimumOperatorSetVersion = 1;
     kernelDescription.executionType = MLOperatorExecutionType::D3D12;
     kernelDescription.options = MLOperatorKernelOptions::None;
     kernelDescription.executionOptions = 0;
 
-    auto shapeInferrer = wil::MakeOrThrow<shape_inferrer<op_type>>();
-    auto factory = wil::MakeOrThrow<op_factory<custom_op<op_type>>>();
-
     ComPtr<IMLOperatorRegistryPrivate> registryPrivate;
     ORT_THROW_IF_FAILED(registry->QueryInterface(IID_PPV_ARGS(&registryPrivate)));
-
     ORT_THROW_IF_FAILED(registryPrivate->RegisterOperatorKernel(
         &kernelDescription,
-        factory.Get(),
-        shapeInferrer.Get(),
+        kernelFactory,
+        shapeInferrer,
         nullptr,
         false, // isInternalOperator
         false, // alias
@@ -82,6 +96,22 @@ void register_operator_kernel(IMLOperatorRegistry* registry)
         nullptr,
         nullptr,
         0));
+}
+
+template <typename op_type>
+void register_operator_kernel(IMLOperatorRegistry* registry)
+{
+    auto shapeInferrer = wil::MakeOrThrow<shape_inferrer<op_type>>();
+    auto factory = wil::MakeOrThrow<op_factory<custom_op<op_type>>>();
+    register_operator_kernel(registry, op_type::op_name, factory.Get(), shapeInferrer.Get());
+}
+
+template <typename op_type>
+void register_operator_kernel2(IMLOperatorRegistry* registry)
+{
+    auto shapeInferrer = wil::MakeOrThrow<shape_inferrer2<op_type>>();
+    auto factory = wil::MakeOrThrow<op_factory<op_type>>();
+    register_operator_kernel(registry, op_type::op_name, factory.Get(), shapeInferrer.Get());
 }
 
 // util
@@ -128,10 +158,10 @@ public:
         MLOperatorEdgeDescription edgeDesc0 = kernelInfo.GetInputEdgeDescription(0);
         assert(edgeDesc0.edgeType == MLOperatorEdgeType::Tensor);
         auto dataType = edgeDesc0.tensorDataType;
-        for (uint32_t i = 1; i < op_type::num_inputs; i++) {
-            auto edgeDesc_i = kernelInfo.GetInputEdgeDescription(i);
-            assert(dataType == edgeDesc_i.tensorDataType);
-        }
+        // for (uint32_t i = 1; i < op_type::num_inputs; i++) {
+            // auto edgeDesc_i = kernelInfo.GetInputEdgeDescription(i);
+            // assert(dataType == edgeDesc_i.tensorDataType);
+        // }
 
         // Compute root signature.
         const int uavCount = op_type::num_inputs + op_type::num_outputs; // 3 bound UAVs: input, offset, mask, output
@@ -385,55 +415,97 @@ public:
 
 };
 
-}
-
-
-
-/*
-
-namespace GridSampleHelpers
+class custom_op2 : public WRL::Base<IMLOperatorKernel>
 {
-    // Divides and rounds
-    inline uint32_t CeilDivide(uint32_t dividend, uint32_t divisor)
-    {
-        uint64_t temp = static_cast<uint64_t>(dividend) + divisor - 1;
-        return static_cast<uint32_t>(temp / divisor);
+protected:
+    ComPtr<ID3D12Device> m_device;
+
+public:
+
+    virtual int numInputs() = 0;
+    virtual int numOutputs() = 0;
+
+    virtual void run(
+        ComPtr<ID3D12GraphicsCommandList> commandList,
+        IMLOperatorKernelContext* context,
+        std::vector<ComPtr<ID3D12Resource>>& input_resources,
+        std::vector<std::vector<uint32_t>>& input_dims,
+        std::vector<ComPtr<ID3D12Resource>>& output_resources,
+        std::vector<std::vector<uint32_t>>& output_dims) = 0;
+
+    explicit custom_op2(IMLOperatorKernelCreationContext* context) {
+        // load params
+        // this is an opaque object that is passed to the custom op implementation at runtime
+        MLOperatorKernelCreationContext creationContext(context);
+        OperatorHelper::KernelInformationAdapter kernelInfo{creationContext};
+        OperatorHelper::ShapeInformationAdapter shapeInfo{creationContext};
+
+        ComPtr<IUnknown> executionObject;
+        context->GetExecutionInterface(executionObject.GetAddressOf());
+
+        ComPtr<ID3D12GraphicsCommandList> commandList;
+        executionObject.As(&commandList);
+
+        ORT_THROW_IF_FAILED(commandList->GetDevice(IID_ID3D12Device, &m_device));
     }
 
-    // Gets the next number of elements to dispatch to the GPU within a loop handling a large
-    // total number of tensor elements and threads.
-    void GetNextDispatchSize(
-        uint32_t elementCount,
-        uint32_t elementsPerThread,
-        uint32_t numThreads,
-        _Out_ uint32_t& dispatch,
-        _Out_ uint32_t& pendingElementCount
-    )
-    {
-        // Max threads per workgroup is 2^10 (1024). Max dispatch per dimension is 2^16. Taken together, we can dispatch a maximum of
-        // 2^26 (268,435,456) threads along a single dimension. This should suffice for a majority of the workload. Therefore, even
-        // though it is possible to dispatch up to (2^16)^3 workgroups simultaneously, we stick to the simpler 1D dispatch alternative.
-        assert(numThreads <= D3D12_CS_THREAD_GROUP_MAX_THREADS_PER_GROUP);
+    STDMETHOD(Compute)(IMLOperatorKernelContext* context) {
+        try
+        {
+            std::vector<ComPtr<ID3D12Resource>> input_resources;
+            std::vector<std::vector<uint32_t>> input_dims;
+            for (int i = 0; i < numInputs(); i++) {
+                // Get the input tensor
+                ComPtr<IMLOperatorTensor> t;
+                ORT_THROW_IF_FAILED(context->GetInputTensor(i, t.GetAddressOf()));
+                if (t->IsCpuData()) { return E_UNEXPECTED; }
+                auto dims = GetTensorDimensions(t.Get());
 
-        const uint32_t maxThreadsPerDispatch = numThreads * D3D12_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION;
+                ComPtr<IUnknown> u;
+                ComPtr<ID3D12Resource> r;
+                t->GetDataInterface(u.GetAddressOf());
+                ORT_THROW_IF_FAILED(u.As(&r));
 
-        const uint32_t requiredThreadCount = CeilDivide(elementCount, elementsPerThread);
+                input_resources.push_back(r);
+                input_dims.push_back(dims);
+            }
 
-        // Compute max dispatchable elements
-        const uint32_t availableThreadCount = std::min(requiredThreadCount, maxThreadsPerDispatch);
+            std::vector<ComPtr<ID3D12Resource>> output_resources;
+            std::vector<std::vector<uint32_t>> output_dims;
+            for (int i = 0; i < numOutputs(); i++) {
+                // Get the output tensor
+                ComPtr<IMLOperatorTensor> t;
+                ORT_THROW_IF_FAILED(context->GetOutputTensor(i, t.GetAddressOf()));
+                if (t->IsCpuData()) { return E_UNEXPECTED; }
+                auto dims = GetTensorDimensions(t.Get());
 
-        // Compute required thread group count
-        uint32_t workGroupCount1D = CeilDivide(availableThreadCount, numThreads);
+                ComPtr<IUnknown> u;
+                ComPtr<ID3D12Resource> r;
+                t->GetDataInterface(u.GetAddressOf());
+                ORT_THROW_IF_FAILED(u.As(&r));
 
-        // Compute min dispatch size
-        dispatch = workGroupCount1D;
+                output_resources.push_back(r);
+                output_dims.push_back(dims);
+            }
 
-        // With the dispatch size computed, compute the dispatched element count
-        const uint32_t dispatchedElementCount = workGroupCount1D * numThreads * elementsPerThread;
+            ComPtr<IUnknown> executionObject;
+            ComPtr<ID3D12GraphicsCommandList> commandList;
+            context->GetExecutionInterface(executionObject.GetAddressOf());
+            executionObject.As(&commandList);
 
-        // Update the pending element count
-        pendingElementCount = (dispatchedElementCount < elementCount) ? elementCount - dispatchedElementCount : 0;
+            run(
+                commandList,
+                context,
+                input_resources, input_dims,
+                output_resources, output_dims);
+        }
+        catch (...)
+        {
+            return E_FAIL;
+        }
+
+        return S_OK;
     }
+};
+
 }
-
-*/
