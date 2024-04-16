@@ -108,9 +108,9 @@ public:
                 uint32_t rank = shapeInfo.GetInputTensorDimensionCount(1);
                 ML_CHECK_VALID_ARGUMENT(rank == 4, "Offset shape must be 4D.");
                 auto dims = shapeInfo.GetInputTensorShape(1);
-                assert(dims.size() == rank);
-                assert(n == dims[0]);
-                assert(n_offset_grps * kernel_h * kernel_w * 2 == dims[1]);
+                assert(dims.size() == static_cast<int32_t>(rank));
+                assert(n == static_cast<int32_t>(dims[0]));
+                assert(n_offset_grps * kernel_h * kernel_w * 2 == static_cast<int32_t>(dims[1]));
                 out_h = static_cast<int32_t>(dims[2]);
                 out_w = static_cast<int32_t>(dims[3]);
             }
@@ -121,10 +121,10 @@ public:
                 ML_CHECK_VALID_ARGUMENT(rank == 4, "mask shape must be 4D.");
                 auto dims = shapeInfo.GetInputTensorShape(2);
                 assert(dims.size() == rank);
-                assert(n == dims[0]);
-                assert(n_offset_grps * kernel_h * kernel_w == dims[1]);
-                assert(out_h == dims[2]);
-                assert(out_w == dims[3]);
+                assert(n == static_cast<int32_t>(dims[0]));
+                assert(n_offset_grps * kernel_h * kernel_w == static_cast<int32_t>(dims[1]));
+                assert(out_h == static_cast<int32_t>(dims[2]));
+                assert(out_w == static_cast<int32_t>(dims[3]));
             }
         }
 

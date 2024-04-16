@@ -88,10 +88,10 @@ public:
                 ML_CHECK_VALID_ARGUMENT(rank == 4, "Offset shape must be 4D.");
                 auto dims = shapeInfo.GetInputTensorShape(1);
                 assert(dims.size() == rank);
-                assert(n == dims[0]);
-                assert(2 == dims[1]);
-                assert(h == dims[2]);
-                assert(w == dims[3]);
+                assert(n == static_cast<int32_t>(dims[0]));
+                assert(2 == static_cast<int32_t>(dims[1]));
+                assert(h == static_cast<int32_t>(dims[2]));
+                assert(w == static_cast<int32_t>(dims[3]));
             }
 
             // input 1: flow_2
@@ -100,10 +100,10 @@ public:
                 ML_CHECK_VALID_ARGUMENT(rank == 4, "Offset shape must be 4D.");
                 auto dims = shapeInfo.GetInputTensorShape(1);
                 assert(dims.size() == rank);
-                assert(n == dims[0]);
-                assert(2 == dims[1]);
-                assert(h == dims[2]);
-                assert(w == dims[3]);
+                assert(n == static_cast<int32_t>(dims[0]));
+                assert(2 == static_cast<int32_t>(dims[1]));
+                assert(h == static_cast<int32_t>(dims[2]));
+                assert(w == static_cast<int32_t>(dims[3]));
             }
         }
 
