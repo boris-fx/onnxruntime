@@ -49,7 +49,7 @@ class TestSymbolicShapeInference(unittest.TestCase):
 
             # https://github.com/onnx/models/issues/562
             if any(model_name in str(filename) for model_name in skipped_models):
-                print(f"Skip symbolic shape inference on : {str(filename)}")
+                print(f"Skip symbolic shape inference on : {filename!s}")
                 continue
 
             print("Running symbolic shape inference on : " + str(filename))
@@ -391,6 +391,208 @@ class TestSymbolicShapeInferenceForOperators(unittest.TestCase):
         output_dims = unique_element(model.graph.output).type.tensor_type.shape.dim
         self.assertEqual(len(output_dims), 1)
         self.assertEqual(output_dims[0].dim_value, 512)
+
+    def test_quantize_linear(self):
+        """
+        Test ONNX QuantizeLinear op.
+        Check that the output shape is propagated from the first input and that the output data
+        type comes from the zero-point input.
+        """
+        initializers = [
+            helper.make_tensor(
+                "scale",
+                TensorProto.FLOAT,
+                [],
+                [1.0],
+            ),
+            helper.make_tensor(
+                "zero_point",
+                TensorProto.INT8,
+                [],
+                [16],
+            ),
+        ]
+
+        nodes = [
+            helper.make_node(
+                "QuantizeLinear",
+                inputs=[
+                    "input_f32",
+                    "scale",
+                    "zero_point",
+                ],
+                outputs=["output_s8"],
+            ),
+        ]
+
+        inputs = [
+            helper.make_tensor_value_info("input_f32", TensorProto.FLOAT, ["b", 2, 3, 4]),
+        ]
+
+        outputs = [
+            helper.make_tensor_value_info("output_s8", TensorProto.UNDEFINED, None),
+        ]
+
+        graph = helper.make_graph(nodes, "QuantizeLinear_Test", inputs, outputs, initializers)
+        model = helper.make_model(graph)
+
+        inferred = SymbolicShapeInference.infer_shapes(model, auto_merge=True)
+
+        expected_shapes = [
+            helper.make_tensor_value_info("output_s8", TensorProto.INT8, ["b", 2, 3, 4]),
+        ]
+        self._check_shapes(graph, inferred.graph, expected_shapes)
+
+    def test_quantize_linear_ms_domain(self):
+        """
+        Test QuantizeLinear op ('com.microsoft' domain).
+        Check that the output shape is propagated from the first input and that the output data
+        type comes from the zero-point input.
+        """
+        initializers = [
+            helper.make_tensor(
+                "scale",
+                TensorProto.FLOAT,
+                [],
+                [1.0],
+            ),
+            helper.make_tensor(
+                "zero_point",
+                TensorProto.UINT16,
+                [],
+                [16],
+            ),
+        ]
+
+        nodes = [
+            helper.make_node(
+                "QuantizeLinear",
+                inputs=[
+                    "input_f32",
+                    "scale",
+                    "zero_point",
+                ],
+                outputs=["output_u16"],
+                domain="com.microsoft",
+            ),
+        ]
+
+        inputs = [
+            helper.make_tensor_value_info("input_f32", TensorProto.FLOAT, ["b", 2, 3, 4]),
+        ]
+
+        outputs = [
+            helper.make_tensor_value_info("output_u16", TensorProto.UNDEFINED, None),
+        ]
+
+        graph = helper.make_graph(nodes, "QuantizeLinear_MSDomain_Test", inputs, outputs, initializers)
+        model = helper.make_model(graph)
+
+        inferred = SymbolicShapeInference.infer_shapes(model, auto_merge=True)
+
+        expected_shapes = [
+            helper.make_tensor_value_info("output_u16", TensorProto.UINT16, ["b", 2, 3, 4]),
+        ]
+        self._check_shapes(graph, inferred.graph, expected_shapes)
+
+    def test_quantize_linear_no_zp_input(self):
+        """
+        Test QuantizeLinear op ('com.microsoft' domain).
+        Check that the output shape is propagated from the first input.
+        The zero-point input is missing, so the output data type should default to uint8.
+        """
+        initializers = [
+            helper.make_tensor(
+                "scale",
+                TensorProto.FLOAT,
+                [],
+                [1.0],
+            ),
+        ]
+
+        nodes = [
+            helper.make_node(
+                "QuantizeLinear",
+                inputs=[
+                    "input_f32",
+                    "scale",
+                ],
+                outputs=["output_u8"],
+                domain="com.microsoft",
+            ),
+        ]
+
+        inputs = [
+            helper.make_tensor_value_info("input_f32", TensorProto.FLOAT, ["b", 2, 3, 4]),
+        ]
+
+        outputs = [
+            helper.make_tensor_value_info("output_u8", TensorProto.UNDEFINED, None),
+        ]
+
+        graph = helper.make_graph(nodes, "QuantizeLinear_NoZP_Test", inputs, outputs, initializers)
+        model = helper.make_model(graph)
+
+        inferred = SymbolicShapeInference.infer_shapes(model, auto_merge=True)
+
+        # Check that the output shape is propagated from the first input and that the
+        # output data type comes from the zero-point input.
+        expected_shapes = [
+            helper.make_tensor_value_info("output_u8", TensorProto.UINT8, ["b", 2, 3, 4]),
+        ]
+        self._check_shapes(graph, inferred.graph, expected_shapes)
+
+    def test_dequantize_linear_ms_domain(self):
+        """
+        Test DequantizeLinear operator ('com.microsoft' domain).
+        Check that the output shape is propagated from the first input and that the output data
+        type comes from the scale input.
+        """
+        initializers = [
+            helper.make_tensor(
+                "scale",
+                TensorProto.FLOAT,
+                [],
+                [1.0],
+            ),
+            helper.make_tensor(
+                "zero_point",
+                TensorProto.UINT16,
+                [],
+                [16],
+            ),
+        ]
+
+        nodes = [
+            helper.make_node(
+                "DequantizeLinear",
+                inputs=[
+                    "input_u16",
+                    "scale",
+                    "zero_point",
+                ],
+                outputs=["output_f32"],
+                domain="com.microsoft",
+            ),
+        ]
+
+        inputs = [
+            helper.make_tensor_value_info("input_u16", TensorProto.UINT16, ["b", 2, 3, 4]),
+        ]
+
+        outputs = [
+            helper.make_tensor_value_info("output_f32", TensorProto.UNDEFINED, None),
+        ]
+
+        graph = helper.make_graph(nodes, "DequantizeLinear_MSDomain_Test", inputs, outputs, initializers)
+        model = helper.make_model(graph)
+
+        inferred = SymbolicShapeInference.infer_shapes(model, auto_merge=True)
+
+        expected_shapes = [
+            helper.make_tensor_value_info("output_f32", TensorProto.FLOAT, ["b", 2, 3, 4]),
+        ]
+        self._check_shapes(graph, inferred.graph, expected_shapes)
 
 
 class TestSymbolicShapeInferenceForSlice(unittest.TestCase):

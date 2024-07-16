@@ -56,7 +56,16 @@ export class BroadcastUtil {
       if (aLen !== bLen && aLen > 1 && bLen > 1) {
         return undefined;
       }
-      cdims[crank - i] = Math.max(aLen, bLen);
+      const max = Math.max(aLen, bLen);
+      if (aLen && bLen) {
+        cdims[crank - i] = Math.max(aLen, bLen);
+      } else {
+        // when either aLen or bLen is 0, the other should be either 0 or 1, otherwise it is not broadcastable.
+        if (max > 1) {
+          return undefined;
+        }
+        cdims[crank - i] = 0;
+      }
     }
 
     return cdims;
@@ -93,6 +102,34 @@ export class ShapeUtil {
   }
 
   /**
+   * convert dims corresponding to type change to pack. ex. uint8 data to uint32
+   */
+  static convertShape(dims: readonly number[], size = 4): readonly number[] {
+    const rank = dims.length;
+    if (rank === 0) {
+      return [];
+    }
+    const newDims = new Array(rank);
+    let i = rank - 1;
+    while (i >= 0) {
+      if (dims[i] % size === 0) {
+        newDims[i] = dims[i] / size;
+        break;
+      }
+      if (size % dims[i] !== 0) {
+        throw new Error('cannot convert shape');
+      }
+      newDims[i] = 1;
+      size /= dims[i];
+      i--;
+    }
+    for (i--; i >= 0; i--) {
+      newDims[i] = dims[i];
+    }
+    return newDims;
+  }
+
+  /**
    * calculate the size (number of elements) from the given axis (inclusive)
    */
   static sizeFromDimension(dims: readonly number[], axis: number): number {
@@ -119,11 +156,11 @@ export class ShapeUtil {
     let size = 1;
     for (let i = start; i < end; i++) {
       // safety check as this method is called by multiple other methods requiring size.
-      // size cannot be 0 or negative.
-      if (dims[i] <= 0) {
+      // size cannot be negative.
+      if (dims[i] < 0) {
         throw new Error(
             // eslint-disable-next-line max-len
-            'cannot get valid size from specified dimension range. Most likely the range contains 0 or negative values in them.');
+            'cannot get valid size from specified dimension range. Most likely the range contains negative values in them.');
       }
       size *= dims[i];
     }

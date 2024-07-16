@@ -420,7 +420,7 @@ def main():
         )
 
         model = ORTModule(model, debug_options)
-        model._torch_module._execution_manager(is_training=True)._enable_grad_acc_optimization = True
+        model._torch_module._execution_manager(is_training=True)._runtime_options.enable_grad_acc_optimization = True
 
     # Tell pytorch to run this model on the GPU.
     if torch.cuda.is_available() and not args.no_cuda:
@@ -446,7 +446,7 @@ def main():
 
     # 4. Train loop (fine-tune)
     total_training_time, total_test_time, epoch_0_training, validation_accuracy = 0, 0, 0, 0
-    for epoch_i in range(0, args.epochs):
+    for epoch_i in range(args.epochs):
         total_training_time += train(model, optimizer, scaler, scheduler, train_dataloader, epoch_i, device, args)
         if not args.pytorch_only and epoch_i == 0:
             epoch_0_training = total_training_time

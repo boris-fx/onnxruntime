@@ -4,6 +4,7 @@
 #include "core/providers/qnn/builder/qnn_def.h"
 #include "core/providers/qnn/builder/qnn_utils.h"
 #include <memory>
+#include <ostream>
 #include <cstring>
 
 namespace onnxruntime {
@@ -88,6 +89,15 @@ void SetQnnTensorClientBuf(Qnn_Tensor_t& qnn_tensor, const std::vector<uint32_t>
   }
 }
 
+void SetQnnTensorClientBuf(Qnn_Tensor_t& qnn_tensor, void* buf_data, uint32_t buf_size) {
+  if (QNN_TENSOR_VERSION_1 == qnn_tensor.version) {
+    qnn_tensor.v1.clientBuf.data = buf_data;
+    qnn_tensor.v1.clientBuf.dataSize = buf_size;
+  } else {
+    ORT_THROW("QNN tensor version not supported, QNN tensor version: ", qnn_tensor.version);
+  }
+}
+
 void SetQnnTensorClientBufSize(Qnn_Tensor_t& qnn_tensor, uint32_t client_buf_size) {
   if (QNN_TENSOR_VERSION_1 == qnn_tensor.version) {
     qnn_tensor.v1.clientBuf.dataSize = client_buf_size;
@@ -105,18 +115,10 @@ void SetQnnTensorClientBufData(Qnn_Tensor_t& qnn_tensor, void* client_buf_data) 
 }
 
 void SetQnnTensorQParams(Qnn_Tensor_t& qnn_tensor, const Qnn_QuantizeParams_t& quantize_params) {
-  Qnn_QuantizationEncoding_t encoding = quantize_params.quantizationEncoding;
-  if (encoding == QNN_QUANTIZATION_ENCODING_SCALE_OFFSET ||
-      encoding == QNN_QUANTIZATION_ENCODING_UNDEFINED) {
-    if (QNN_TENSOR_VERSION_1 == qnn_tensor.version) {
-      qnn_tensor.v1.quantizeParams = quantize_params;
-    } else {
-      ORT_THROW("QNN tensor version not supported, QNN tensor version: ", qnn_tensor.version);
-    }
-  } else if (encoding == QNN_QUANTIZATION_ENCODING_AXIS_SCALE_OFFSET) {
-    ORT_THROW("Axis scale offset quantization parameter is not supported.");
+  if (QNN_TENSOR_VERSION_1 == qnn_tensor.version) {
+    qnn_tensor.v1.quantizeParams = quantize_params;
   } else {
-    ORT_THROW("quantizationEncoding incorrect value.");
+    ORT_THROW("QNN tensor version not supported, QNN tensor version: ", qnn_tensor.version);
   }
 }
 
@@ -198,6 +200,30 @@ const Qnn_QuantizeParams_t& GetQnnTensorQParams(const Qnn_Tensor_t& qnn_tensor) 
   } else {
     ORT_THROW("QNN tensor version not supported, QNN tensor version: ", qnn_tensor.version);
   }
+}
+
+Status CompareQnnQuantParams(const Qnn_QuantizeParams_t& qparam0, const Qnn_QuantizeParams_t& qparam1,
+                             float& scale_diff, int32_t& offset_diff) {
+  scale_diff = 0.0f;
+  offset_diff = 0;
+
+  ORT_RETURN_IF_NOT((qparam0.encodingDefinition == qparam1.encodingDefinition &&
+                     qparam0.quantizationEncoding == qparam1.quantizationEncoding),
+                    "Expected quantization parameters to be the same type.");
+
+  if (qparam0.encodingDefinition == QNN_DEFINITION_DEFINED) {
+    switch (qparam0.quantizationEncoding) {
+      case QNN_QUANTIZATION_ENCODING_SCALE_OFFSET: {
+        scale_diff = std::abs(qparam0.scaleOffsetEncoding.scale - qparam1.scaleOffsetEncoding.scale);
+        offset_diff = std::abs(qparam0.scaleOffsetEncoding.offset - qparam1.scaleOffsetEncoding.offset);
+        break;
+      }
+      default:
+        return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, "Unsupported quantization encoding: ", qparam0.quantizationEncoding);
+    }
+  }
+
+  return Status::OK();
 }
 
 bool CreateTensorInQnnGraph(const QNN_INTERFACE_VER_TYPE& qnn_interface,
@@ -332,7 +358,10 @@ bool QnnOpConfigWrapper::QnnGraphOpValidation(const QNN_INTERFACE_VER_TYPE& qnn_
                                               std::string& error_msg) {
   auto validation_status = qnn_interface.backendValidateOpConfig(backend_handle, op_config_);
   if (QNN_SUCCESS != validation_status) {
-    error_msg = "Validating node failed for: " + name_;
+    std::ostringstream oss;
+    oss << "QNN.backendValidateOpConfig() failed for node `" << name_ << "` of type `"
+        << type_name_ << "` with error code " << validation_status << std::endl;
+    error_msg = oss.str();
     return false;
   }
 
@@ -344,11 +373,18 @@ bool QnnOpConfigWrapper::CreateQnnGraphOp(const QNN_INTERFACE_VER_TYPE& qnn_inte
                                           std::string& error_msg) {
   auto status = qnn_interface.graphAddNode(graph, op_config_);
   if (QNN_GRAPH_NO_ERROR != status) {
-    error_msg = "Adding node failed for: " + name_;
+    std::ostringstream oss;
+    oss << "QNN.graphAddNode() failed for node `" << name_ << "` of type `" << type_name_
+        << "` with error code " << status << std::endl;
+    error_msg = oss.str();
     return false;
   }
 
   return true;
+}
+
+bool IsNpuBackend(QnnBackendType backend_type) {
+  return backend_type == QnnBackendType::HTP || backend_type == QnnBackendType::DSP;
 }
 
 }  // namespace qnn

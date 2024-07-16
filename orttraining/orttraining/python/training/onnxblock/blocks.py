@@ -7,6 +7,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional
 
+import numpy as np
 import onnx
 
 import onnxruntime.training.onnxblock._graph_utils as _graph_utils
@@ -143,9 +144,10 @@ class Pow(Block):
 class _UnaryOp(Block):
     """Base class for all nodes that take in a single argument."""
 
-    def __init__(self, op_name):
+    def __init__(self, op_name, **attributes):
         super().__init__()
         self._op_name = op_name
+        self._attributes = attributes
 
     def build(self, input_name):
         # get the model to manipulate
@@ -164,6 +166,7 @@ class _UnaryOp(Block):
             node_input_names,
             node_output_names,
             _graph_utils.generate_graph_name(self._op_name),
+            **self._attributes,
         )
         onnx_model.graph.node.append(node)
 
@@ -173,15 +176,15 @@ class _UnaryOp(Block):
 class ReduceMean(_UnaryOp):
     """Adds ReduceMean node to the onnx model."""
 
-    def __init__(self):
-        super().__init__("ReduceMean")
+    def __init__(self, keepdims=True):
+        super().__init__("ReduceMean", keepdims=keepdims)
 
 
 class ReduceSum(_UnaryOp):
     """Adds ReduceSum node to the onnx model."""
 
-    def __init__(self):
-        super().__init__("ReduceSum")
+    def __init__(self, keepdims=True):
+        super().__init__("ReduceSum", keepdims=keepdims)
 
 
 class Sigmoid(_UnaryOp):
@@ -427,3 +430,51 @@ class Cast(Block):
         self.base.graph.node.append(cast_node)
 
         return cast_output_name
+
+
+class Linear(Block):
+    def __init__(self, in_features, out_features, bias=True, alpha=1.0, beta=1.0):
+        super().__init__()
+
+        self._in_features = in_features
+        self._bias = bias
+        self._out_features = out_features
+        self._alpha = alpha
+        self._beta = beta
+
+    def build(self, linear_input_name: str):
+        # Weight initializer
+        linear_node_weight_name = _graph_utils.generate_graph_name("linear.weight")
+
+        self.base.graph.initializer.append(
+            onnx.numpy_helper.from_array(
+                np.random.randn(self._in_features, self._out_features).astype(np.float32), linear_node_weight_name
+            )
+        )
+
+        linear_node_input_names = [linear_input_name, linear_node_weight_name]
+
+        # Bias initializer
+        if self._bias:
+            linear_node_bias_name = _graph_utils.generate_graph_name("linear.bias")
+            self.base.graph.initializer.append(
+                onnx.numpy_helper.from_array(
+                    np.random.randn(self._out_features).astype(np.float32), linear_node_bias_name
+                )
+            )
+            linear_node_input_names.append(linear_node_bias_name)
+
+        linear_node_output_name = _graph_utils.generate_graph_name("linear.output")
+        linear_node_output_names = [linear_node_output_name]
+        linear_node = onnx.helper.make_node(
+            "Gemm",
+            linear_node_input_names,
+            linear_node_output_names,
+            _graph_utils.generate_graph_name("linear"),
+            alpha=self._alpha,
+            beta=self._beta,
+        )
+
+        self.base.graph.node.append(linear_node)
+
+        return linear_node_output_name

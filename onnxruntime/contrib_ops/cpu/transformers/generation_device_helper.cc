@@ -223,11 +223,13 @@ Status CreateGptInputs(
   return Status::OK();
 }
 
-Status AddToFeeds(const IExecutionProvider* /*execution_provider*/,
-                  Stream* /*ort_stream*/,
+Status AddToFeeds(Stream* /*ort_stream*/,
                   std::initializer_list<OrtValue> inputs,
                   std::vector<OrtValue>& feeds,
-                  IAllocatorUniquePtr<char>& /*buffer*/) {
+                  IAllocatorUniquePtr<char>& /*buffer*/,
+                  AllocatorPtr /*device_allocator*/,
+                  AllocatorPtr /*host_allocator*/,
+                  const OrtMemoryInfo& /*location*/) {
   for (auto& input : inputs) {
     if (input.IsAllocated()) {
       feeds.push_back(input);
@@ -278,7 +280,6 @@ void InitGreedyState(transformers::IGreedySearchState<T>* greedy_state,
 template <typename T>
 Status ProcessLogits(const OrtValue& logits,                                 // logits output of subgraph
                      transformers::IBeamSearchState<T>* beam_state,          // state
-                     transformers::IBeamSearchCpuState* cpu_state,           // state in CPU
                      transformers::ISequences* sequences,                    // sequences
                      AllocatorPtr& allocator,                                // default allocator
                      onnxruntime::concurrency::ThreadPool* thread_pool,      // thread pool (for CPU only)
@@ -288,7 +289,6 @@ Status ProcessLogits(const OrtValue& logits,                                 // 
                      int step,                                               // iteration counter
                      Stream* stream,                                         // cuda stream (for CUDA only)
                      const transformers::IConsoleDumper* dumper) {           // tensor dumper
-  ORT_UNUSED_PARAMETER(cpu_state);
 #ifndef DEBUG_GENERATION
   ORT_UNUSED_PARAMETER(dumper);
 #endif
@@ -944,7 +944,6 @@ template void InitGreedyState<float>(
 template Status ProcessLogits<float>(
     const OrtValue& logits,
     transformers::IBeamSearchState<float>* beam_state,
-    transformers::IBeamSearchCpuState* cpu_state,
     transformers::ISequences* sequences,
     AllocatorPtr& allocator,
     onnxruntime::concurrency::ThreadPool* thread_pool,
@@ -1084,6 +1083,38 @@ template Status CreateWhisperEncoderInputs<MLFloat16>(
     AllocatorPtr allocator,
     OrtValue& encoder_input_features,
     OrtValue& decoder_input_ids);
+
+Status UpdateDecoderCrossQK(
+    [[maybe_unused]] int iteration_number,
+    [[maybe_unused]] Stream* tream,
+    [[maybe_unused]] OrtValue* cross_qks,
+    [[maybe_unused]] IAllocatorUniquePtr<float*>& qk_layer_pointers,
+    [[maybe_unused]] int num_layers,
+    [[maybe_unused]] int cross_qk_layer_head_pair_count,
+    [[maybe_unused]] const int* cross_qk_layer_head_pairs,
+    [[maybe_unused]] float* cross_qk_buffer_data,
+    [[maybe_unused]] int max_length,
+    [[maybe_unused]] AllocatorPtr allocator) {
+  return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, "CPU beam search current not support output cross QK.");
+}
+
+Status FinalizeDecoderCrossQK(
+    [[maybe_unused]] Stream* stream,
+    [[maybe_unused]] int iteration_number,
+    [[maybe_unused]] int context_decoding_len,
+    [[maybe_unused]] int batch_size,
+    [[maybe_unused]] int num_beams,
+    [[maybe_unused]] int max_length,
+    [[maybe_unused]] int cross_qk_layer_head_pair_count,
+    [[maybe_unused]] const int* cross_qk_layer_head_pairs,
+    [[maybe_unused]] int frames_of_k,
+    [[maybe_unused]] const float* cross_qk_buffer_data,
+    [[maybe_unused]] float* cross_qk_output,
+    [[maybe_unused]] int num_return_sequences,
+    [[maybe_unused]] const int* cache_indir_data,
+    [[maybe_unused]] gsl::span<const int32_t> beam_indices) {
+  return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, "CPU beam search current not support output cross QK.");
+}
 
 }  // namespace GenerationCpuDeviceHelper
 }  // namespace contrib

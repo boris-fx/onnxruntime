@@ -135,7 +135,7 @@ TEST(ComputeOptimizerTests, InsertGatherBeforeSceLoss_Allowed) {
       }
     };
 
-    std::vector<int> opsets{12, 13, 14, 15};
+    std::vector<int> opsets{12, 13, 14, 15, 17};
     for (auto opset : opsets) {
       std::unique_ptr<GraphTransformer> transformer =
           std::make_unique<InsertGatherBeforeSceLoss>(compatible_eps, std::vector<std::string>{"label"});
@@ -206,7 +206,7 @@ TEST(ComputeOptimizerTests, InsertGatherBeforeSceLoss_NotAllowed_LabelNameNotMat
       }
     };
 
-    std::vector<int> opsets{12, 13, 14, 15};
+    std::vector<int> opsets{12, 13, 14, 15, 17};
     for (auto opset : opsets) {
       std::unique_ptr<GraphTransformer> transformer =
           std::make_unique<InsertGatherBeforeSceLoss>(compatible_eps, std::vector<std::string>{"label"});
@@ -277,7 +277,7 @@ TEST(ComputeOptimizerTests, InsertGatherBeforeSceLoss_NotAllowed_ReduceNone) {
       }
     };
 
-    std::vector<int> opsets{12, 13, 14, 15};
+    std::vector<int> opsets{12, 13, 14, 15, 17};
     for (auto opset : opsets) {
       std::unique_ptr<GraphTransformer> transformer =
           std::make_unique<InsertGatherBeforeSceLoss>(compatible_eps, std::vector<std::string>{"label"});
@@ -344,7 +344,7 @@ TEST(ComputeOptimizerTests, InsertGatherBeforeSceLoss_NotAllowed_NoIgnoreIndex) 
       }
     };
 
-    std::vector<int> opsets{12, 13, 14, 15};
+    std::vector<int> opsets{12, 13, 14, 15, 17};
     for (auto opset : opsets) {
       std::unique_ptr<GraphTransformer> transformer =
           std::make_unique<InsertGatherBeforeSceLoss>(compatible_eps, std::vector<std::string>{"label"});
@@ -407,7 +407,7 @@ TEST(ComputeOptimizerTests, InsertGatherBeforeSceLoss_MlmBertE2E) {
   }
 
   onnxruntime::test::TemporaryDirectory tmp_dir{ORT_TSTR("compute_optimizer_test_tmp_dir")};
-  PathString new_model_uri{ConcatPathComponent<PathChar>(
+  PathString new_model_uri{ConcatPathComponent(
       tmp_dir.Path(),
       ORT_TSTR("insert_gather_before_sceloss_bert_e2e_optimized.onnx"))};
   ASSERT_STATUS_OK(Model::Save(*model, new_model_uri));

@@ -14,6 +14,8 @@
 #include "core/providers/common.h"
 #include "core/providers/shared/utils/utils.h"
 
+#include <utility>
+
 namespace onnxruntime {
 namespace webnn {
 
@@ -38,6 +40,25 @@ Status ModelBuilder::Initialize() {
   return Status::OK();
 }
 
+InitializedTensorSet ModelBuilder::GetInitializerTensors() {
+  if (graph_viewer_.IsSubgraph()) {
+    auto all_initializers = CollectAllInitializedTensors(graph_viewer_);
+    const auto sub_graph_id = graph_viewer_.GetFilterInfo();
+    const auto subgraph_initializer_names = sub_graph_id->GetMetaDef()->constant_initializers;
+    InitializedTensorSet subgraph_initializers;
+
+    for (const auto& name : subgraph_initializer_names) {
+      auto it = all_initializers.find(name);
+      if (it != all_initializers.end()) {
+        subgraph_initializers.insert(*it);
+      }
+    }
+    return subgraph_initializers;
+  } else {
+    return graph_viewer_.GetAllInitializedTensors();
+  }
+}
+
 /* static */ const IOpBuilder* ModelBuilder::GetOpBuilder(const Node& node) {
   const auto& op_builders = GetOpBuilders();
   const auto it = op_builders.find(node.OpType());
@@ -57,33 +78,52 @@ void ModelBuilder::PreprocessInitializers() {
   }
 }
 
-emscripten::val GetClampOperator(
-    const emscripten::val& builder, float min_value, float max_value) {
-  emscripten::val options = emscripten::val::object();
-  options.set("minValue", min_value);
-  options.set("maxValue", max_value);
-  return builder.call<emscripten::val>("clamp", options);
-}
-
 void ModelBuilder::PreprocessActivations() {
   const auto& node_indices = graph_viewer_.GetNodesInTopologicalOrder();
   for (size_t i = 0; i < node_indices.size(); i++) {
     const auto* node(graph_viewer_.GetNode(node_indices[i]));
     const auto& op_type(node->OpType());
 
-    if (op_type == "Relu") {
+    if (op_type == "Clip") {
+      // Temporarily disable clamp fusion for WebNN GPU as which is not supported yet.
+      if (wnn_device_type_ == WebnnDeviceType::CPU) {
+        float minValue, maxValue;
+        GetClipMinMax(GetInitializerTensors(), *node, minValue, maxValue, logger_);
+        emscripten::val options = emscripten::val::object();
+        options.set("minValue", minValue);
+        options.set("maxValue", maxValue);
+        activation_nodes_.emplace(node->Index(), wnn_builder_.call<emscripten::val>("clamp", options));
+      }
+    } else if (op_type == "Elu") {
+      NodeAttrHelper helper(*node);
+      emscripten::val options = emscripten::val::object();
+      options.set("alpha", helper.Get("alpha", 1.0f));
+      activation_nodes_.emplace(node->Index(), wnn_builder_.call<emscripten::val>("elu", options));
+    } else if (op_type == "Gelu") {
+      activation_nodes_.emplace(node->Index(), wnn_builder_.call<emscripten::val>("gelu"));
+    } else if (op_type == "HardSigmoid") {
+      NodeAttrHelper helper(*node);
+      emscripten::val options = emscripten::val::object();
+      options.set("alpha", helper.Get("alpha", 0.2f));
+      options.set("beta", helper.Get("beta", 0.5f));
+      activation_nodes_.emplace(node->Index(), wnn_builder_.call<emscripten::val>("hardSigmoid", options));
+    } else if (op_type == "HardSwish") {
+      activation_nodes_.emplace(node->Index(), wnn_builder_.call<emscripten::val>("hardSwish"));
+    } else if (op_type == "Relu") {
       activation_nodes_.emplace(node->Index(), wnn_builder_.call<emscripten::val>("relu"));
     } else if (op_type == "LeakyRelu") {
       NodeAttrHelper helper(*node);
       emscripten::val options = emscripten::val::object();
-      options.set("alpha", helper.Get("alpha", (float)0.0));
+      options.set("alpha", helper.Get("alpha", 0.0f));
       activation_nodes_.emplace(node->Index(), wnn_builder_.call<emscripten::val>("leakyRelu", options));
     } else if (op_type == "Sigmoid") {
       activation_nodes_.emplace(node->Index(), wnn_builder_.call<emscripten::val>("sigmoid"));
-    } else if (op_type == "Clip") {
-      float minValue, maxValue;
-      GetClipMinMax(GetInitializerTensors(), *node, minValue, maxValue, logger_);
-      activation_nodes_.emplace(node->Index(), GetClampOperator(wnn_builder_, minValue, maxValue));
+    } else if (op_type == "Softplus") {
+      activation_nodes_.emplace(node->Index(), wnn_builder_.call<emscripten::val>("softplus"));
+    } else if (op_type == "Softsign") {
+      activation_nodes_.emplace(node->Index(), wnn_builder_.call<emscripten::val>("softsign"));
+    } else if (op_type == "Tanh") {
+      activation_nodes_.emplace(node->Index(), wnn_builder_.call<emscripten::val>("tanh"));
     }
   }
 }
@@ -108,58 +148,61 @@ Status ModelBuilder::RegisterInitializers() {
     auto data_type = tensor.data_type();
     emscripten::val operand = emscripten::val::object();
     if (IsSupportedDataType(data_type, wnn_device_type_)) {
-      unpacked_tensors_.push_back({});
-      std::vector<uint8_t>& unpacked_tensor = unpacked_tensors_.back();
-      ORT_RETURN_IF_ERROR(onnxruntime::utils::UnpackInitializerData(tensor, unpacked_tensor));
+      ORT_RETURN_IF_NOT(SetWebnnDataType(desc, data_type), "Unsupported data type");
       auto num_elements = SafeInt<size_t>(Product(tensor.dims()));
       emscripten::val view = emscripten::val::undefined();
+      std::byte* tensor_ptr = nullptr;
+      if (tensor.has_raw_data()) {
+        tensor_ptr = reinterpret_cast<std::byte*>(const_cast<char*>(tensor.raw_data().c_str()));
+      } else {
+        unpacked_tensors_.push_back({});
+        std::vector<uint8_t>& unpacked_tensor = unpacked_tensors_.back();
+        ORT_RETURN_IF_ERROR(onnxruntime::utils::UnpackInitializerData(tensor, unpacked_tensor));
+        tensor_ptr = reinterpret_cast<std::byte*>(unpacked_tensor.data());
+      }
       switch (data_type) {
         case ONNX_NAMESPACE::TensorProto_DataType_BOOL:
+        case ONNX_NAMESPACE::TensorProto_DataType_UINT8:
           desc.set("type", emscripten::val("uint8"));
           view = emscripten::val{emscripten::typed_memory_view(num_elements,
-                                                               reinterpret_cast<uint8_t*>(unpacked_tensor.data()))};
+                                                               reinterpret_cast<uint8_t*>(tensor_ptr))};
+          break;
+        case ONNX_NAMESPACE::TensorProto_DataType_INT8:
+          desc.set("type", emscripten::val("int8"));
+          view = emscripten::val{emscripten::typed_memory_view(num_elements,
+                                                               reinterpret_cast<int8_t*>(tensor_ptr))};
           break;
         case ONNX_NAMESPACE::TensorProto_DataType_FLOAT16:
-          desc.set("type", emscripten::val("float16"));
           view = emscripten::val{emscripten::typed_memory_view(num_elements,
-                                                               reinterpret_cast<uint16_t*>(unpacked_tensor.data()))};
+                                                               reinterpret_cast<uint16_t*>(tensor_ptr))};
           break;
         case ONNX_NAMESPACE::TensorProto_DataType_FLOAT:
-          desc.set("type", emscripten::val("float32"));
           view = emscripten::val{emscripten::typed_memory_view(num_elements,
-                                                               reinterpret_cast<float*>(unpacked_tensor.data()))};
+                                                               reinterpret_cast<float*>(tensor_ptr))};
           break;
         case ONNX_NAMESPACE::TensorProto_DataType_INT32:
-          desc.set("type", emscripten::val("int32"));
           view = emscripten::val{emscripten::typed_memory_view(num_elements,
-                                                               reinterpret_cast<int32_t*>(unpacked_tensor.data()))};
+                                                               reinterpret_cast<int32_t*>(tensor_ptr))};
           break;
         case ONNX_NAMESPACE::TensorProto_DataType_INT64:
-          desc.set("type", emscripten::val("int64"));
           view = emscripten::val{emscripten::typed_memory_view(num_elements,
-                                                               reinterpret_cast<int64_t*>(unpacked_tensor.data()))};
+                                                               reinterpret_cast<int64_t*>(tensor_ptr))};
           break;
         case ONNX_NAMESPACE::TensorProto_DataType_UINT32:
-          desc.set("type", emscripten::val("uint32"));
           view = emscripten::val{emscripten::typed_memory_view(num_elements,
-                                                               reinterpret_cast<uint32_t*>(unpacked_tensor.data()))};
+                                                               reinterpret_cast<uint32_t*>(tensor_ptr))};
           break;
         case ONNX_NAMESPACE::TensorProto_DataType_UINT64:
-          desc.set("type", emscripten::val("uint64"));
           view = emscripten::val{emscripten::typed_memory_view(num_elements,
-                                                               reinterpret_cast<uint64_t*>(unpacked_tensor.data()))};
+                                                               reinterpret_cast<uint64_t*>(tensor_ptr))};
           break;
         default:
           break;
       }
-#ifdef ENABLE_WEBASSEMBLY_THREADS
-      // Workaround for WebAssembly multi-threads enabled since WebNN API only accepts non-shared ArrayBufferView.
-      // https://www.w3.org/TR/webnn/#typedefdef-mlnamedarraybufferviews
-      operand = wnn_builder_.call<emscripten::val>("constant", desc, view.call<emscripten::val>("slice"));
-#else
-      operand = wnn_builder_.call<emscripten::val>("constant", desc, view);
-#endif
 
+      // Wasm memory grow will cause all array buffers reallocation, which will be treated as detached
+      // buffers in JS side. Simply create a copy to fix it.
+      operand = wnn_builder_.call<emscripten::val>("constant", desc, view.call<emscripten::val>("slice"));
     } else {
       // TODO: support other type.
       return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT,
@@ -204,12 +247,9 @@ Status ModelBuilder::RegisterModelInputOutput(const NodeArg& node_arg, bool is_i
     } else {
       dims.reserve(shape.size());
       for (const auto& dim : shape) {
-        if (!dim.has_dim_value()) {
-          // FIXME: support dyanmic shape.
-          dims.push_back(1);
-        } else {
-          dims.push_back(SafeInt<int32_t>(dim.dim_value()));
-        }
+        // dim_param free dimensions should have already been excluded by IsInputSupported().
+        assert(dim.has_dim_value());
+        dims.push_back(SafeInt<int32_t>(dim.dim_value()));
       }
     }
   }
@@ -227,35 +267,7 @@ Status ModelBuilder::RegisterModelInputOutput(const NodeArg& node_arg, bool is_i
     }
 
     data_type = type_proto->tensor_type().elem_type();
-    switch (data_type) {
-      case ONNX_NAMESPACE::TensorProto_DataType_BOOL:
-        desc.set("type", emscripten::val("uint8"));
-        break;
-      case ONNX_NAMESPACE::TensorProto_DataType_FLOAT16:
-        desc.set("type", emscripten::val("float16"));
-        break;
-      case ONNX_NAMESPACE::TensorProto_DataType_FLOAT:
-        desc.set("type", emscripten::val("float32"));
-        break;
-      case ONNX_NAMESPACE::TensorProto_DataType_INT32:
-        desc.set("type", emscripten::val("int32"));
-        break;
-      case ONNX_NAMESPACE::TensorProto_DataType_INT64:
-        desc.set("type", emscripten::val("int64"));
-        break;
-      case ONNX_NAMESPACE::TensorProto_DataType_UINT32:
-        desc.set("type", emscripten::val("uint32"));
-        break;
-      case ONNX_NAMESPACE::TensorProto_DataType_UINT64:
-        desc.set("type", emscripten::val("uint64"));
-        break;
-      default: {
-        // TODO: support other type.
-        return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT,
-                               "The ", input_output_type, " of graph doesn't have valid type, name: ", name,
-                               " type: ", type_proto->tensor_type().elem_type());
-      }
-    }
+    ORT_RETURN_IF_NOT(SetWebnnDataType(desc, data_type), "Unsupported data type");
   }
 
   if (is_input) {
@@ -305,41 +317,40 @@ Status ModelBuilder::AddOperandFromPersistMemoryBuffer(
   memcpy(dest, buffer, size);
   emscripten::val view = emscripten::val::undefined();
   emscripten::val desc = emscripten::val::object();
+  ORT_RETURN_IF_NOT(SetWebnnDataType(desc, data_type), "Unsupported data type");
   switch (data_type) {
     case ONNX_NAMESPACE::TensorProto_DataType_BOOL:
+    case ONNX_NAMESPACE::TensorProto_DataType_UINT8:
       view = emscripten::val{emscripten::typed_memory_view(size / sizeof(uint8_t),
                                                            reinterpret_cast<const uint8_t*>(dest))};
-      desc.set("type", emscripten::val("uint8"));
+      break;
+    case ONNX_NAMESPACE::TensorProto_DataType_INT8:
+      view = emscripten::val{emscripten::typed_memory_view(size / sizeof(int8_t),
+                                                           reinterpret_cast<const int8_t*>(dest))};
       break;
     case ONNX_NAMESPACE::TensorProto_DataType_FLOAT16:
       view = emscripten::val{emscripten::typed_memory_view(size / sizeof(uint16_t),
                                                            reinterpret_cast<const uint16_t*>(dest))};
-      desc.set("type", emscripten::val("float16"));
       break;
     case ONNX_NAMESPACE::TensorProto_DataType_FLOAT:
       view = emscripten::val{emscripten::typed_memory_view(size / sizeof(float),
                                                            reinterpret_cast<const float*>(dest))};
-      desc.set("type", emscripten::val("float32"));
       break;
     case ONNX_NAMESPACE::TensorProto_DataType_INT32:
       view = emscripten::val{emscripten::typed_memory_view(size / sizeof(int32_t),
                                                            reinterpret_cast<const int32_t*>(dest))};
-      desc.set("type", emscripten::val("int32"));
       break;
     case ONNX_NAMESPACE::TensorProto_DataType_INT64:
       view = emscripten::val{emscripten::typed_memory_view(size / sizeof(int64_t),
                                                            reinterpret_cast<const int64_t*>(dest))};
-      desc.set("type", emscripten::val("int64"));
       break;
     case ONNX_NAMESPACE::TensorProto_DataType_UINT32:
       view = emscripten::val{emscripten::typed_memory_view(size / sizeof(uint32_t),
                                                            reinterpret_cast<const uint32_t*>(dest))};
-      desc.set("type", emscripten::val("uint32"));
       break;
     case ONNX_NAMESPACE::TensorProto_DataType_UINT64:
       view = emscripten::val{emscripten::typed_memory_view(size / sizeof(uint64_t),
                                                            reinterpret_cast<const uint64_t*>(dest))};
-      desc.set("type", emscripten::val("uint64"));
       break;
     default:
       break;
@@ -347,13 +358,10 @@ Status ModelBuilder::AddOperandFromPersistMemoryBuffer(
 
   desc.set("dimensions", emscripten::val::array(shape));
   emscripten::val operand = emscripten::val::object();
-#ifdef ENABLE_WEBASSEMBLY_THREADS
-  // Workaround for WebAssembly multi-threads enabled since WebNN API only accepts non-shared ArrayBufferView.
-  // https://www.w3.org/TR/webnn/#typedefdef-mlnamedarraybufferviews
+  // Wasm memory grow will cause all array buffers reallocation, which will be treated as detached
+  // buffers in JS side. Simply create a copy to fix it.
   operand = wnn_builder_.call<emscripten::val>("constant", desc, view.call<emscripten::val>("slice"));
-#else
-  operand = wnn_builder_.call<emscripten::val>("constant", desc, view);
-#endif
+
   AddOperand(name, operand);
   mem_persist_buffers_.push_back(std::move(persist_buffer));
   return Status::OK();
@@ -373,7 +381,8 @@ Status ModelBuilder::Compile(std::unique_ptr<Model>& model) {
   for (auto& name : output_names_) {
     named_operands.set(name, wnn_operands_.at(name));
   }
-  emscripten::val wnn_graph = wnn_builder_.call<emscripten::val>("buildSync", named_operands);
+
+  emscripten::val wnn_graph = wnn_builder_.call<emscripten::val>("build", named_operands).await();
   if (!wnn_graph.as<bool>()) {
     return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, "Failed to build WebNN graph.");
   }
@@ -382,13 +391,10 @@ Status ModelBuilder::Compile(std::unique_ptr<Model>& model) {
   model->SetOutputs(std::move(output_names_));
   model->SetScalarOutputs(std::move(scalar_outputs_));
   model->SetInputOutputInfo(std::move(input_output_info_));
-#ifdef ENABLE_WEBASSEMBLY_THREADS
-  // Pre-allocate the input and output tensors for the WebNN graph
-  // when WebAssembly multi-threads is enabled since WebNN API only
-  // accepts non-shared ArrayBufferView.
-  // https://www.w3.org/TR/webnn/#typedefdef-mlnamedarraybufferviews
+  // Wasm heap is not transferrable, we have to pre-allocate the MLNamedArrayBufferViews
+  // for inputs and outputs because they will be transferred after compute() done.
+  // https://webmachinelearning.github.io/webnn/#api-mlcontext-async-execution
   model->AllocateInputOutputBuffers();
-#endif
   return Status::OK();
 }
 
@@ -438,6 +444,38 @@ void ModelBuilder::AddScalarOutput(const std::string& output_name) {
 
 void ModelBuilder::AddOperand(const std::string& name, const emscripten::val& operand) {
   wnn_operands_.insert(std::make_pair(name, operand));
+}
+
+// Get the zero scalar constant.
+// Workaround for builer.constant(value, type) method since it has not been implemented now.
+// https://webmachinelearning.github.io/webnn/#api-mlgraphbuilder-constant-value-type
+// BTW, the spec is discussing if the builer.constant(value, type) should be dropped at
+// https://github.com/webmachinelearning/webnn/issues/475. Fix me according to the spec decision.
+const emscripten::val& ModelBuilder::GetZeroConstant(const std::string& data_type) {
+  std::string name = "webnn_zero_constant_" + data_type;
+  // If the operand does not exist, create it.
+  if (wnn_operands_.find(name) == wnn_operands_.end()) {
+    emscripten::val desc = emscripten::val::object();
+    emscripten::val dims = emscripten::val::array();
+    desc.set("dimensions", dims);
+    emscripten::val zero_buffer = emscripten::val::undefined();
+    if (data_type == "uint8") {
+      if (!SetWebnnDataType(desc, ONNX_NAMESPACE::TensorProto_DataType_UINT8)) {
+        ORT_THROW("Unsupported data type: " + data_type);
+      }
+      zero_buffer = emscripten::val::global("Uint8Array").new_(1);
+    } else if (data_type == "float32") {
+      if (!SetWebnnDataType(desc, ONNX_NAMESPACE::TensorProto_DataType_FLOAT)) {
+        ORT_THROW("Unsupported data type: " + data_type);
+      }
+      zero_buffer = emscripten::val::global("Float32Array").new_(1);
+    } else {
+      ORT_THROW("Unsupported data type: " + data_type);
+    }
+    emscripten::val zero_constant = wnn_builder_.call<emscripten::val>("constant", desc, zero_buffer);
+    wnn_operands_.insert(std::make_pair(name, zero_constant));
+  }
+  return wnn_operands_.at(name);
 }
 
 void ModelBuilder::AddInitializerToSkip(const std::string& tensor_name) {

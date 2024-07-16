@@ -56,11 +56,7 @@ def parse_args():
 def main():
     args = parse_args()
 
-    log.debug(
-        "Dockerfile: {}, context: {}, docker build args: '{}'".format(
-            args.dockerfile, args.context, args.docker_build_args
-        )
-    )
+    log.debug(f"Dockerfile: {args.dockerfile}, context: {args.context}, docker build args: '{args.docker_build_args}'")
 
     use_container_registry = args.container_registry is not None
 
@@ -86,7 +82,7 @@ def main():
         manylinux_build_scripts_folder = Path(args.manylinux_src) / "docker" / "build_scripts"
         dest = Path(args.context) / "build_scripts"
         if dest.exists():
-            log.info(f"Deleting: {str(dest)}")
+            log.info(f"Deleting: {dest!s}")
             shutil.rmtree(str(dest))
         shutil.copytree(str(manylinux_build_scripts_folder), str(dest))
         src_entrypoint_file = str(Path(args.manylinux_src) / "docker" / "manylinux-entrypoint")

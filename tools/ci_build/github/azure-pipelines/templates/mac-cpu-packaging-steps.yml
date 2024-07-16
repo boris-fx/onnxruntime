@@ -47,14 +47,14 @@ steps:
     BuildStep:
       - script: |
           rm -rf $(Build.BinariesDirectory)/Release
-          python3 $(Build.SourcesDirectory)/tools/ci_build/build.py --update --build ${{ parameters.AdditionalBuildFlags }} --build_dir $(Build.BinariesDirectory) --skip_submodule_sync --parallel --build_shared_lib --config Release
+          python3 $(Build.SourcesDirectory)/tools/ci_build/build.py --update --build ${{ parameters.AdditionalBuildFlags }} --build_dir $(Build.BinariesDirectory) --skip_submodule_sync --parallel --use_binskim_compliant_compile_flags --build_shared_lib --config Release
         displayName: 'Build ${{ parameters.MacosArch }}'
         env:
           CCACHE_DIR: ${{ parameters.CacheDir }}
 
 - ${{ if eq(parameters.MacosArch, 'x86_64') }}:
   - script: |
-      python3 $(Build.SourcesDirectory)/tools/ci_build/build.py --test  ${{ parameters.AdditionalBuildFlags }} --build_dir $(Build.BinariesDirectory) --skip_submodule_sync --parallel --build_shared_lib --config Release
+      python3 $(Build.SourcesDirectory)/tools/ci_build/build.py --test  ${{ parameters.AdditionalBuildFlags }} --build_dir $(Build.BinariesDirectory) --skip_submodule_sync --parallel --use_binskim_compliant_compile_flags --build_shared_lib --config Release
     displayName: 'Running Tests'
 
 - task: ShellScript@2
@@ -68,8 +68,9 @@ steps:
   inputs:
     rootFolderOrFile: '$(Build.BinariesDirectory)/onnxruntime-osx-${{ parameters.MacosArch }}-$(OnnxRuntimeVersion)'
     includeRootFolder: true
-    archiveType: 'zip' # Options: zip, 7z, tar, wim
-    archiveFile: '$(Build.ArtifactStagingDirectory)/onnxruntime-osx-${{ parameters.MacosArch }}-$(OnnxRuntimeVersion).zip'
+    archiveType: 'tar' # Options: zip, 7z, tar, wim
+    tarCompression: 'gz'
+    archiveFile: '$(Build.ArtifactStagingDirectory)/onnxruntime-osx-${{ parameters.MacosArch }}-$(OnnxRuntimeVersion).tgz'
     replaceExistingArchive: true
 
 - script: |

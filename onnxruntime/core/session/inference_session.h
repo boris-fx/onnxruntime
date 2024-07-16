@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <map>
+#include <optional>
 #include <string>
 #include <unordered_map>
 
@@ -20,11 +22,12 @@
 #include "core/framework/session_state.h"
 #include "core/framework/tuning_results.h"
 #include "core/framework/framework_provider_common.h"
+#include "core/framework/session_options.h"
 #include "core/graph/basic_types.h"
 #include "core/optimizer/graph_transformer_level.h"
 #include "core/optimizer/graph_transformer_mgr.h"
 #include "core/optimizer/insert_cast_transformer.h"
-#include "core/framework/session_options.h"
+#include "core/platform/ort_mutex.h"
 #ifdef ENABLE_LANGUAGE_INTEROP_OPS
 #include "core/language_interop_ops/language_interop_ops.h"
 #endif
@@ -103,6 +106,26 @@ struct ModelMetadata {
  */
 
 class InferenceSession {
+  struct InputOutputDefMetaData {
+    InputOutputDefMetaData(const NodeArg* node_arg0, MLDataType ml_data_type0, TensorShape&& tensor_shape0)
+        : node_arg(node_arg0), ml_data_type(ml_data_type0), tensor_shape(std::move(tensor_shape0)) {
+    }
+
+    InputOutputDefMetaData(const NodeArg* node_arg0, MLDataType ml_data_type0)
+        : node_arg(node_arg0), ml_data_type(ml_data_type0) {
+    }
+
+    gsl::not_null<const NodeArg*> node_arg;
+    MLDataType ml_data_type;
+    std::optional<TensorShape> tensor_shape;  // not applicable if the input is non-tensor type
+  };
+
+  using InputOutputDefMetaMap = InlinedHashMap<std::string_view, InputOutputDefMetaData>;
+  static std::map<uint32_t, InferenceSession*> active_sessions_;
+#ifdef _WIN32
+  static OrtMutex active_sessions_mutex_;  // Protects access to active_sessions_
+#endif
+
  public:
 #if !defined(ORT_MINIMAL_BUILD)
 
@@ -304,6 +327,20 @@ class InferenceSession {
                                    gsl::span<const OrtValue> feeds, gsl::span<const std::string> output_names,
                                    std::vector<OrtValue>* p_fetches,
                                    const std::vector<OrtDevice>* p_fetches_device_info = nullptr);
+
+  [[nodiscard]] common::Status Run(const RunOptions& run_options,
+                                   gsl::span<const char* const> feed_names,
+                                   gsl::span<const OrtValue* const> feeds,
+                                   gsl::span<const char* const> fetch_names,
+                                   gsl::span<OrtValue*> fetches);
+
+  [[nodiscard]] common::Status RunAsync(const RunOptions* run_options,
+                                        gsl::span<const char* const> feed_names,
+                                        gsl::span<const OrtValue* const> feeds,
+                                        gsl::span<const char* const> fetch_names,
+                                        gsl::span<OrtValue*> fetches,
+                                        RunAsyncCallbackFn callback,
+                                        void* user_data = nullptr);
 
   /**
    * Run a pre-loaded and pre-intialized model.
@@ -556,9 +593,6 @@ class InferenceSession {
   // if they need.
   std::shared_ptr<onnxruntime::Model> model_;
 
-  // names of model outputs used for quick validation.
-  std::unordered_set<std::string> model_output_names_;
-
   // The file path of where the model was loaded. e.g. /tmp/test_squeezenet/model.onnx
   PathString model_location_;
 
@@ -567,7 +601,8 @@ class InferenceSession {
 
  private:
   ORT_DISALLOW_COPY_ASSIGNMENT_AND_MOVE(InferenceSession);
-
+  void SetLoggingManager(const SessionOptions& session_options,
+                         const Environment& session_env);
   void ConstructorCommon(const SessionOptions& session_options,
                          const Environment& session_env);
 
@@ -613,8 +648,10 @@ class InferenceSession {
 
   void InitLogger(logging::LoggingManager* logging_manager);
 
+  void TraceSessionOptions(const SessionOptions& session_options, bool captureState);
+
   [[nodiscard]] common::Status CheckShapes(const std::string& input_name, const TensorShape& input_shape,
-                                           const TensorShape& expected_shape) const;
+                                           const TensorShape& expected_shape, const char* input_output_moniker) const;
 
   [[nodiscard]] common::Status ValidateInputs(gsl::span<const std::string> feed_names,
                                               gsl::span<const OrtValue> feeds) const;
@@ -622,13 +659,15 @@ class InferenceSession {
   [[nodiscard]] common::Status ValidateOutputs(gsl::span<const std::string> output_names,
                                                const std::vector<OrtValue>* p_fetches) const;
 
+  [[nodiscard]] common::Status ValidateInputsOutputs(gsl::span<const std::string> feed_fetches_names,
+                                                     gsl::span<const OrtValue> feeds_fetches,
+                                                     const InputOutputDefMetaMap& input_output_meta_map,
+                                                     ArgType arg_type) const;
+
   [[nodiscard]] common::Status WaitForNotification(Notification* p_executor_done, int64_t timeout_in_ms);
 
   template <typename T>
   void StartProfiling(const std::basic_string<T>& file_prefix);
-
-  // Updates all providers with the allocators from the env based on OrtMemoryInfo
-  void UpdateProvidersWithSharedAllocators();
 
   /*
    * Validate and parses the shrink arena request string from the user
@@ -636,7 +675,6 @@ class InferenceSession {
    * If we encounter an invalid request, we return an error
    * back to the user.
    */
-
   [[nodiscard]] common::Status ValidateAndParseShrinkArenaString(const std::string& ort_device_list,
                                                                  /*out*/ InlinedVector<AllocatorPtr>& arenas_to_shrink) const;
 
@@ -645,6 +683,10 @@ class InferenceSession {
    * The `arenas_to_shrink` parameter is got from ValidateAndParseShrinkArenaString()
    */
   void ShrinkMemoryArenas(gsl::span<const AllocatorPtr> arenas_to_shrink);
+
+#ifdef _WIN32
+  void LogAllSessions();
+#endif
 
 #if !defined(ORT_MINIMAL_BUILD)
   virtual common::Status AddPredefinedTransformers(
@@ -668,7 +710,10 @@ class InferenceSession {
   SessionOptions session_options_;
 
   /// Logging manager if provided.
-  logging::LoggingManager* const logging_manager_;
+  logging::LoggingManager* logging_manager_;
+
+  /// User specified logging mgr; logging_manager_ is simply the ptr in this unique_ptr when available
+  std::unique_ptr<logging::LoggingManager> user_logging_manager_;
 
   /// Logger for this session. WARNING: Will contain nullptr if logging_manager_ is nullptr.
   std::unique_ptr<logging::Logger> owned_session_logger_ = nullptr;
@@ -726,19 +771,9 @@ class InferenceSession {
 #endif
 
   ModelMetadata model_metadata_;
-  std::unordered_set<std::string> required_inputs_;
 
-  struct InputDefMetaData {
-    InputDefMetaData(const NodeArg* node_arg0, MLDataType ml_data_type0, TensorShape&& tensor_shape0)
-        : node_arg(node_arg0), ml_data_type(ml_data_type0), tensor_shape(std::move(tensor_shape0)) {
-    }
-    const NodeArg* node_arg;
-    MLDataType ml_data_type;
-    TensorShape tensor_shape;  // not applicable if the input is non-tensor type
-  };
-
-  std::unordered_map<std::string, InputDefMetaData> input_def_map_;
-  OutputDefList output_def_list_;
+  InputOutputDefMetaMap input_def_map_;
+  InputOutputDefMetaMap output_def_map_;
 
   // Data transfer manager.
   DataTransferManager data_transfer_mgr_;
@@ -831,14 +866,17 @@ class InferenceSession {
       return cached_execution_provider_for_graph_replay_ != nullptr && cached_execution_provider_for_graph_replay_->IsGraphCaptureEnabled();
     }
 
-    bool IsGraphCaptured() const {
-      return cached_execution_provider_for_graph_replay_ != nullptr && cached_execution_provider_for_graph_replay_->IsGraphCaptured();
+    bool IsGraphCaptured(int graph_annotation_id) const {
+      return cached_execution_provider_for_graph_replay_ != nullptr && cached_execution_provider_for_graph_replay_->IsGraphCaptured(graph_annotation_id);
     }
 
-    Status ReplayGraph() {
-      ORT_ENFORCE(IsGraphCaptured());
+    bool AllowGraphCaptureOnRun(int graph_annotation_id) const {
+      return cached_execution_provider_for_graph_replay_ != nullptr && graph_annotation_id != kGraphAnnotationSkip;
+    }
+
+    Status ReplayGraph(int graph_annotation_id) {
       if (cached_execution_provider_for_graph_replay_) {
-        return cached_execution_provider_for_graph_replay_->ReplayGraph();
+        return cached_execution_provider_for_graph_replay_->ReplayGraph(graph_annotation_id);
       }
       return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, "Cached EP instance for graph replay is not set yet before calling ReplayGraph()");
     }
@@ -848,6 +886,8 @@ class InferenceSession {
     }
 
     IExecutionProvider* cached_execution_provider_for_graph_replay_ = nullptr;
+    // TODO(wy): Same as kCudaGraphAnnotationSkip in cuda_graph.h. Move to a common place.
+    constexpr static int kGraphAnnotationSkip = -1;
   };
 
   CachedExecutionProviderForGraphReplay cached_execution_provider_for_graph_replay_;

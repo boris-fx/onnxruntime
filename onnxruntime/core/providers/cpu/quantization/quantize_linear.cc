@@ -5,12 +5,46 @@
 #include "core/framework/element_type_lists.h"
 #include "core/framework/float8.h"
 #include "core/framework/float16.h"
-#include "core/providers/cpu/quantization/quantize_linear.h"
+#include "core/framework/op_kernel.h"
 #include "core/providers/common.h"
 #include "core/mlas/inc/mlas.h"
 #include "core/util/qmath.h"
 
 namespace onnxruntime {
+
+template <typename T>
+class DequantizeLinear final : public OpKernel {
+ public:
+  explicit DequantizeLinear(const OpKernelInfo& info) : OpKernel(info) {
+    if (!info.GetAttr<int64_t>("axis", &axis_).IsOK()) {
+      axis_ = 1;
+    }
+  }
+
+  Status Compute(OpKernelContext* context) const override;
+
+ private:
+  int64_t axis_;
+};
+
+template <typename T>
+class QuantizeLinear final : public OpKernel {
+ public:
+  explicit QuantizeLinear(const OpKernelInfo& info) : OpKernel(info) {
+    if (!info.GetAttr<int64_t>("axis", &axis_).IsOK()) {
+      axis_ = 1;
+    }
+    if (!info.GetAttr<int64_t>("saturate", &saturate_).IsOK()) {
+      saturate_ = 1;
+    }
+  }
+
+  Status Compute(OpKernelContext* context) const override;
+
+ private:
+  int64_t axis_;
+  int64_t saturate_;
+};
 
 static void PrepareForQDQ(const TensorShape& input_shape,
                           const Tensor& scale,
@@ -46,7 +80,7 @@ static void PrepareForQDQ(const TensorShape& input_shape,
 #define REGISTER_DEQUANTIZELINEAR(T)                                         \
   ONNX_CPU_OPERATOR_TYPED_KERNEL(                                            \
       DequantizeLinear,                                                      \
-      19,                                                                    \
+      21,                                                                    \
       T,                                                                     \
       KernelDefBuilder()                                                     \
           .TypeConstraint("T1", DataTypeImpl::GetTensorType<T>())            \
@@ -54,7 +88,19 @@ static void PrepareForQDQ(const TensorShape& input_shape,
                                  DataTypeImpl::GetTensorType<MLFloat16>()}), \
       DequantizeLinear<T>);
 
-#define REGISTER_DEQUANTIZELINEAR_VERSIONED(T)                    \
+#define REGISTER_DEQUANTIZELINEAR_VERSIONED(T)                               \
+  ONNX_CPU_OPERATOR_VERSIONED_TYPED_KERNEL(                                  \
+      DequantizeLinear,                                                      \
+      19,                                                                    \
+      20,                                                                    \
+      T,                                                                     \
+      KernelDefBuilder()                                                     \
+          .TypeConstraint("T1", DataTypeImpl::GetTensorType<T>())            \
+          .TypeConstraint("T2", {DataTypeImpl::GetTensorType<float>(),       \
+                                 DataTypeImpl::GetTensorType<MLFloat16>()}), \
+      DequantizeLinear<T>);
+
+#define REGISTER_DEQUANTIZELINEAR_VERSIONED_PRE_19(T)             \
   ONNX_CPU_OPERATOR_VERSIONED_TYPED_KERNEL(                       \
       DequantizeLinear,                                           \
       13,                                                         \
@@ -73,8 +119,12 @@ static void PrepareForQDQ(const TensorShape& input_shape,
           .TypeConstraint("T", DataTypeImpl::GetTensorType<T>()), \
       DequantizeLinear<T>);
 
+// Opset 21 added 16-bit and 4-bit int to DQ.
+// TODO(adrianlizarraga): Also support 4-bit int types and 'block' quantization.
 REGISTER_DEQUANTIZELINEAR(int8_t)
 REGISTER_DEQUANTIZELINEAR(uint8_t)
+REGISTER_DEQUANTIZELINEAR(int16_t)
+REGISTER_DEQUANTIZELINEAR(uint16_t)
 REGISTER_DEQUANTIZELINEAR(int32_t)
 #if !defined(DISABLE_FLOAT8_TYPES)
 REGISTER_DEQUANTIZELINEAR(Float8E4M3FN)
@@ -82,9 +132,75 @@ REGISTER_DEQUANTIZELINEAR(Float8E4M3FNUZ)
 REGISTER_DEQUANTIZELINEAR(Float8E5M2)
 REGISTER_DEQUANTIZELINEAR(Float8E5M2FNUZ)
 #endif
+
+// Opset 19 added 8-bit float inputs and 16-bit float outputs to DQ.
 REGISTER_DEQUANTIZELINEAR_VERSIONED(int8_t)
 REGISTER_DEQUANTIZELINEAR_VERSIONED(uint8_t)
 REGISTER_DEQUANTIZELINEAR_VERSIONED(int32_t)
+#if !defined(DISABLE_FLOAT8_TYPES)
+REGISTER_DEQUANTIZELINEAR_VERSIONED(Float8E4M3FN)
+REGISTER_DEQUANTIZELINEAR_VERSIONED(Float8E4M3FNUZ)
+REGISTER_DEQUANTIZELINEAR_VERSIONED(Float8E5M2)
+REGISTER_DEQUANTIZELINEAR_VERSIONED(Float8E5M2FNUZ)
+#endif
+
+// Before opset 19, DQ only supported int8, uint8 and int32.
+REGISTER_DEQUANTIZELINEAR_VERSIONED_PRE_19(int8_t)
+REGISTER_DEQUANTIZELINEAR_VERSIONED_PRE_19(uint8_t)
+REGISTER_DEQUANTIZELINEAR_VERSIONED_PRE_19(int32_t)
+
+#if !defined(DISABLE_CONTRIB_OPS)
+namespace contrib {
+
+// Register alternate MS domain versions of the DequantizeLinear kernel.
+// The MS domain versions additionally support 16-bit integer quantization types.
+ONNX_CPU_OPERATOR_TYPED_MS_KERNEL(
+    DequantizeLinear,
+    1,
+    uint8_t,
+    KernelDefBuilder()
+        .TypeConstraint("T1", DataTypeImpl::GetTensorType<uint8_t>())
+        .TypeConstraint("T2", DataTypeImpl::GetTensorType<float>()),
+    DequantizeLinear<uint8_t>);
+
+ONNX_CPU_OPERATOR_TYPED_MS_KERNEL(
+    DequantizeLinear,
+    1,
+    int8_t,
+    KernelDefBuilder()
+        .TypeConstraint("T1", DataTypeImpl::GetTensorType<int8_t>())
+        .TypeConstraint("T2", DataTypeImpl::GetTensorType<float>()),
+    DequantizeLinear<int8_t>);
+
+ONNX_CPU_OPERATOR_TYPED_MS_KERNEL(
+    DequantizeLinear,
+    1,
+    uint16_t,
+    KernelDefBuilder()
+        .TypeConstraint("T1", DataTypeImpl::GetTensorType<uint16_t>())
+        .TypeConstraint("T2", DataTypeImpl::GetTensorType<float>()),
+    DequantizeLinear<uint16_t>);
+
+ONNX_CPU_OPERATOR_TYPED_MS_KERNEL(
+    DequantizeLinear,
+    1,
+    int16_t,
+    KernelDefBuilder()
+        .TypeConstraint("T1", DataTypeImpl::GetTensorType<int16_t>())
+        .TypeConstraint("T2", DataTypeImpl::GetTensorType<float>()),
+    DequantizeLinear<int16_t>);
+
+ONNX_CPU_OPERATOR_TYPED_MS_KERNEL(
+    DequantizeLinear,
+    1,
+    int32_t,
+    KernelDefBuilder()
+        .TypeConstraint("T1", DataTypeImpl::GetTensorType<int32_t>())
+        .TypeConstraint("T2", DataTypeImpl::GetTensorType<float>()),
+    DequantizeLinear<int32_t>);
+
+}  // namespace contrib
+#endif  // !defined(DISABLE_CONTRIB_OPS)
 
 template <typename T, typename OutT>
 struct DequantizeLinearApply {
@@ -178,7 +294,7 @@ Status DequantizeLinear<T>::Compute(OpKernelContext* ctx) const {
 #define REGISTER_QUANTIZELINEAR(T)                                          \
   ONNX_CPU_OPERATOR_TYPED_KERNEL(                                           \
       QuantizeLinear,                                                       \
-      19,                                                                   \
+      21,                                                                   \
       T,                                                                    \
       KernelDefBuilder()                                                    \
           .TypeConstraint("T1", {DataTypeImpl::GetTensorType<float>(),      \
@@ -186,7 +302,19 @@ Status DequantizeLinear<T>::Compute(OpKernelContext* ctx) const {
           .TypeConstraint("T2", DataTypeImpl::GetTensorType<T>()),          \
       QuantizeLinear<T>);
 
-#define REGISTER_QUANTIZELINEAR_VERSIONED(T)                          \
+#define REGISTER_QUANTIZELINEAR_VERSIONED(T)                                \
+  ONNX_CPU_OPERATOR_VERSIONED_TYPED_KERNEL(                                 \
+      QuantizeLinear,                                                       \
+      19,                                                                   \
+      20,                                                                   \
+      T,                                                                    \
+      KernelDefBuilder()                                                    \
+          .TypeConstraint("T1", {DataTypeImpl::GetTensorType<float>(),      \
+                                 DataTypeImpl::GetTensorType<MLFloat16>()}) \
+          .TypeConstraint("T2", DataTypeImpl::GetTensorType<T>()),          \
+      QuantizeLinear<T>);
+
+#define REGISTER_QUANTIZELINEAR_VERSIONED_PRE_19(T)                   \
   ONNX_CPU_OPERATOR_VERSIONED_TYPED_KERNEL(                           \
       QuantizeLinear,                                                 \
       13,                                                             \
@@ -207,8 +335,12 @@ Status DequantizeLinear<T>::Compute(OpKernelContext* ctx) const {
           .TypeConstraint("T2", DataTypeImpl::GetTensorType<T>()),    \
       QuantizeLinear<T>);
 
+// Opset 21 added 16-bit and 4-bit int support to Q ops.
+// TODO(adrianlizarraga): Support int4 and block quantization.
 REGISTER_QUANTIZELINEAR(int8_t)
 REGISTER_QUANTIZELINEAR(uint8_t)
+REGISTER_QUANTIZELINEAR(int16_t)
+REGISTER_QUANTIZELINEAR(uint16_t)
 
 #if !defined(DISABLE_FLOAT8_TYPES)
 REGISTER_QUANTIZELINEAR(Float8E4M3FN)
@@ -217,14 +349,69 @@ REGISTER_QUANTIZELINEAR(Float8E5M2)
 REGISTER_QUANTIZELINEAR(Float8E5M2FNUZ)
 #endif
 
+// Opset 19 added 8-bit floats to Q ops.
 REGISTER_QUANTIZELINEAR_VERSIONED(int8_t)
 REGISTER_QUANTIZELINEAR_VERSIONED(uint8_t)
 
-template <typename OutputType>
-void ParQuantizeLinear(const float* Input,
+#if !defined(DISABLE_FLOAT8_TYPES)
+REGISTER_QUANTIZELINEAR_VERSIONED(Float8E4M3FN)
+REGISTER_QUANTIZELINEAR_VERSIONED(Float8E4M3FNUZ)
+REGISTER_QUANTIZELINEAR_VERSIONED(Float8E5M2)
+REGISTER_QUANTIZELINEAR_VERSIONED(Float8E5M2FNUZ)
+#endif
+
+// Before opset 19, Q only supported int8 and uint8.
+REGISTER_QUANTIZELINEAR_VERSIONED_PRE_19(int8_t)
+REGISTER_QUANTIZELINEAR_VERSIONED_PRE_19(uint8_t)
+
+#if !defined(DISABLE_CONTRIB_OPS)
+namespace contrib {
+
+// Register alternate MS domain versions of the QuantizeLinear kernel.
+// The MS domain versions additionally support 16-bit integer quantization types.
+ONNX_CPU_OPERATOR_TYPED_MS_KERNEL(
+    QuantizeLinear,
+    1,
+    uint8_t,
+    KernelDefBuilder()
+        .TypeConstraint("T1", DataTypeImpl::GetTensorType<float>())
+        .TypeConstraint("T2", DataTypeImpl::GetTensorType<uint8_t>()),
+    QuantizeLinear<uint8_t>);
+
+ONNX_CPU_OPERATOR_TYPED_MS_KERNEL(
+    QuantizeLinear,
+    1,
+    int8_t,
+    KernelDefBuilder()
+        .TypeConstraint("T1", DataTypeImpl::GetTensorType<float>())
+        .TypeConstraint("T2", DataTypeImpl::GetTensorType<int8_t>()),
+    QuantizeLinear<int8_t>);
+
+ONNX_CPU_OPERATOR_TYPED_MS_KERNEL(
+    QuantizeLinear,
+    1,
+    uint16_t,
+    KernelDefBuilder()
+        .TypeConstraint("T1", DataTypeImpl::GetTensorType<float>())
+        .TypeConstraint("T2", DataTypeImpl::GetTensorType<uint16_t>()),
+    QuantizeLinear<uint16_t>);
+
+ONNX_CPU_OPERATOR_TYPED_MS_KERNEL(
+    QuantizeLinear,
+    1,
+    int16_t,
+    KernelDefBuilder()
+        .TypeConstraint("T1", DataTypeImpl::GetTensorType<float>())
+        .TypeConstraint("T2", DataTypeImpl::GetTensorType<int16_t>()),
+    QuantizeLinear<int16_t>);
+}  // namespace contrib
+#endif  // !defined(DISABLE_CONTRIB_OPS)
+
+template <typename InputType, typename OutputType>
+void ParQuantizeLinear(const InputType* Input,
                        OutputType* Output,
                        size_t N,
-                       float Scale,
+                       InputType Scale,
                        size_t bd,
                        const OutputType* ZeroPoint,
                        bool saturate,
@@ -236,9 +423,20 @@ void ParQuantizeLinear(const float* Input,
     ParQuantizeLinearStd(Input, Output, N, Scale, ZeroPoint != nullptr ? ZeroPoint[bd] : (OutputType)0, thread_pool);
 #if !defined(DISABLE_FLOAT8_TYPES)
   } else {
-    ParQuantizeLinearSat(Input, Output, N, Scale, ZeroPoint != nullptr ? ZeroPoint[bd] : OutputType(static_cast<float>(0), true), saturate, thread_pool);
+    ParQuantizeLinearSat(Input, Output, N, Scale, ZeroPoint != nullptr ? ZeroPoint[bd] : OutputType(static_cast<InputType>(static_cast<float>(0)), true), saturate, thread_pool);
   }
 #endif
+}
+
+template <typename T, typename InT>
+void ComputeLoop(OpKernelContext* ctx, const InT* input, const InT* scale, const T* zero_point, T* output, int64_t N, int64_t broadcast_dim, int64_t block_size, bool saturate) {
+  for (size_t n = 0; n < static_cast<size_t>(N); n++) {
+    for (size_t bd = 0; bd < static_cast<size_t>(broadcast_dim); bd++) {
+      ParQuantizeLinear(input, output, static_cast<size_t>(block_size), scale[bd], bd, zero_point, saturate, ctx->GetOperatorThreadPool());
+      input += block_size;
+      output += block_size;
+    }
+  }
 }
 
 // formula is Y = X / Scale + ZeroPoint
@@ -256,23 +454,16 @@ Status QuantizeLinear<T>::Compute(OpKernelContext* ctx) const {
   PrepareForQDQ(x.Shape(), y_scale, y_zero_point, axis_, N, broadcast_dim, block_size);
 
   const T* zero_point = y_zero_point != nullptr ? y_zero_point->Data<T>() : nullptr;
-  if (x.IsDataType<float>()) {
-    const float* scale = y_scale.Data<float>();
-    const float* input = x.Data<float>();
-    T* output = y.MutableData<T>();
+  T* output = y.MutableData<T>();
 
-    for (size_t n = 0; n < static_cast<size_t>(N); n++) {
-      for (size_t bd = 0; bd < static_cast<size_t>(broadcast_dim); bd++) {
-        ParQuantizeLinear(input, output, static_cast<size_t>(block_size), scale[bd], bd, zero_point, saturate_, ctx->GetOperatorThreadPool());
-        input += block_size;
-        output += block_size;
-      }
-    }
+  if (x.IsDataType<float>()) {
+    ComputeLoop<T, float>(ctx, x.Data<float>(), y_scale.Data<float>(), zero_point, output, N, broadcast_dim, block_size, saturate_);
+  } else if (x.IsDataType<MLFloat16>()) {
+    ComputeLoop<T, MLFloat16>(ctx, x.Data<MLFloat16>(), y_scale.Data<MLFloat16>(), zero_point, output, N, broadcast_dim, block_size, saturate_);
   } else {
-    ORT_THROW("Quantization from float16 is not supported yet for CPU provider.");
+    ORT_THROW("Unsupported input type.");
   }
 
   return Status::OK();
 }
-
 }  // namespace onnxruntime

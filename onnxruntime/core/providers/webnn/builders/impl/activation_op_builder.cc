@@ -19,8 +19,8 @@ class ActivationOpBuilder : public BaseOpBuilder {
                                const logging::Logger& logger) const override ORT_MUST_USE_RESULT;
 
   // Operator support related.
- private:
-  int GetMinSupportedOpSet(const Node& node) const override;
+  bool IsOpSupportedImpl(const InitializedTensorSet& initializers, const Node& node,
+                         WebnnDeviceType /* device_type */, const logging::Logger& logger) const override;
 };
 
 // Add operator related.
@@ -31,33 +31,41 @@ Status ActivationOpBuilder::AddToModelBuilderImpl(ModelBuilder& model_builder,
   const auto& op_type(node.OpType());
   emscripten::val input = model_builder.GetOperand(node.InputDefs()[0]->Name());
   emscripten::val output = emscripten::val::object();
-  if (op_type == "Relu") {
-    if (Contains(model_builder.GetFusedActivations(), node.InputDefs()[0]->Name())) {
-      LOGS_DEFAULT(VERBOSE) << "Relu Node [" << node.Name() << "] fused";
-      output = input;
-    } else {
-      output = model_builder.GetBuilder().call<emscripten::val>("relu", input);
-    }
-  } else if (op_type == "LeakyRelu") {
-    if (Contains(model_builder.GetFusedActivations(), node.InputDefs()[0]->Name())) {
-      LOGS_DEFAULT(VERBOSE) << "LeakyRelu Node [" << node.Name() << "] fused";
-      output = input;
-    } else {
-      NodeAttrHelper helper(node);
-      emscripten::val options = emscripten::val::object();
-      options.set("alpha", helper.Get("alpha", (float)0.0));
-      output = model_builder.GetBuilder().call<emscripten::val>("leakyRelu", input, options);
-    }
-  } else if (op_type == "Sigmoid") {
-    if (Contains(model_builder.GetFusedActivations(), node.InputDefs()[0]->Name())) {
-      LOGS_DEFAULT(VERBOSE) << "Sigmoid Node [" << node.Name() << "] fused";
-      output = input;
-    } else {
-      output = model_builder.GetBuilder().call<emscripten::val>("sigmoid", input);
-    }
+
+  if (Contains(model_builder.GetFusedActivations(), node.InputDefs()[0]->Name())) {
+    LOGS_DEFAULT(VERBOSE) << op_type << " Node [" << node.Name() << "] fused";
+    output = input;
   } else {
-    return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT,
-                           "ActivationOpBuilder::AddToModelBuilderImpl, unknown op: ", op_type);
+    NodeAttrHelper helper(node);
+    emscripten::val options = emscripten::val::object();
+    if (op_type == "Elu") {
+      options.set("alpha", helper.Get("alpha", 1.0f));
+      output = model_builder.GetBuilder().call<emscripten::val>("elu", input, options);
+    } else if (op_type == "Gelu") {
+      output = model_builder.GetBuilder().call<emscripten::val>("gelu", input, options);
+    } else if (op_type == "HardSigmoid") {
+      options.set("alpha", helper.Get("alpha", 0.2f));
+      options.set("beta", helper.Get("beta", 0.5f));
+      output = model_builder.GetBuilder().call<emscripten::val>("hardSigmoid", input, options);
+    } else if (op_type == "HardSwish") {
+      output = model_builder.GetBuilder().call<emscripten::val>("hardSwish", input);
+    } else if (op_type == "LeakyRelu") {
+      options.set("alpha", helper.Get("alpha", 0.0f));
+      output = model_builder.GetBuilder().call<emscripten::val>("leakyRelu", input, options);
+    } else if (op_type == "Relu") {
+      output = model_builder.GetBuilder().call<emscripten::val>("relu", input);
+    } else if (op_type == "Sigmoid") {
+      output = model_builder.GetBuilder().call<emscripten::val>("sigmoid", input);
+    } else if (op_type == "Softplus") {
+      output = model_builder.GetBuilder().call<emscripten::val>("softplus", input);
+    } else if (op_type == "Softsign") {
+      output = model_builder.GetBuilder().call<emscripten::val>("softsign", input);
+    } else if (op_type == "Tanh") {
+      output = model_builder.GetBuilder().call<emscripten::val>("tanh", input);
+    } else {
+      return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT,
+                             "ActivationOpBuilder::AddToModelBuilderImpl, unknown op: ", op_type);
+    }
   }
 
   model_builder.AddOperand(node.OutputDefs()[0]->Name(), std::move(output));
@@ -65,17 +73,36 @@ Status ActivationOpBuilder::AddToModelBuilderImpl(ModelBuilder& model_builder,
 }
 
 // Operator support related.
+bool ActivationOpBuilder::IsOpSupportedImpl(const InitializedTensorSet& /* initializers */,
+                                            const Node& node,
+                                            WebnnDeviceType /* device_type */,
+                                            const logging::Logger& logger) const {
+  const auto& input_defs = node.InputDefs();
 
-int ActivationOpBuilder::GetMinSupportedOpSet(const Node& /* node */) const {
-  // All ops opset 5- uses consumed_inputs attribute which is not supported for now.
-  return 6;
+  std::vector<int64_t> input_shape;
+  if (!GetShape(*input_defs[0], input_shape, logger))
+    return false;
+
+  return true;
 }
 
 void CreateActivationOpBuilder(const std::string& op_type, OpBuilderRegistrations& op_registrations) {
-  if (op_registrations.op_builder_map.find(op_type) != op_registrations.op_builder_map.cend())
+  if (op_registrations.op_builder_map.count(op_type) > 0)
     return;
 
-  static std::vector<std::string> op_types = {"Relu", "LeakyRelu", "Sigmoid"};
+  static std::vector<std::string> op_types =
+      {
+          "Elu",
+          "Gelu",
+          "HardSigmoid",
+          "HardSwish",
+          "LeakyRelu",
+          "Relu",
+          "Sigmoid",
+          "Softplus",
+          "Softsign",
+          "Tanh",
+      };
 
   op_registrations.builders.push_back(std::make_unique<ActivationOpBuilder>());
   for (const auto& type : op_types) {

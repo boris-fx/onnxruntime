@@ -1,4 +1,31 @@
-trigger: none
+##### start trigger Don't edit it manually, Please do edit set-trigger-rules.py ####
+trigger:
+  branches:
+    include:
+    - main
+    - rel-*
+  paths:
+    exclude:
+    - docs/**
+    - README.md
+    - CONTRIBUTING.md
+    - BUILD.md
+    - 'js/web'
+    - 'onnxruntime/core/providers/js'
+pr:
+  branches:
+    include:
+    - main
+    - rel-*
+  paths:
+    exclude:
+    - docs/**
+    - README.md
+    - CONTRIBUTING.md
+    - BUILD.md
+    - 'js/web'
+    - 'onnxruntime/core/providers/js'
+#### end trigger ####
 
 stages:
 - stage: ORTModuleDistributedTest
@@ -13,6 +40,8 @@ stages:
     - checkout: self
       clean: true
       submodules: recursive
+
+    - template: templates/jobs/download_training_test_data.yml
 
     - template: templates/run-docker-build-steps.yml
       parameters:
@@ -31,10 +60,6 @@ stages:
           -e
         DisplayName: 'Build'
 
-    - bash: tools/ci_build/github/linux/docker/scripts/training/azure_scale_set_vm_mount_test_data.sh -p $(orttrainingtestdatascus-storage-key) -s "//orttrainingtestdatascus.file.core.windows.net/mnist" -d "/mnist"
-      displayName: 'Mount MNIST'
-      condition: succeededOrFailed()
-
       # Entry point for all ORTModule distributed tests
       # Refer to orttraining/orttraining/test/python/how_to_add_ortmodule_distributed_ci_pipeline_tests.md for guidelines on how to add new tests to this pipeline.
     - script: |
@@ -44,7 +69,7 @@ stages:
           --rm \
           --volume $(Build.SourcesDirectory):/onnxruntime_src \
           --volume $(Build.BinariesDirectory):/build \
-          --volume /mnist:/mnist \
+          --volume $(Agent.TempDirectory)/mnist:/mnist \
           onnxruntime_ortmodule_distributed_tests_image \
             bash -c "rm -rf /build/RelWithDebInfo/onnxruntime/ && python3 -m pip install /build/RelWithDebInfo/dist/onnxruntime*.whl && python3 -m onnxruntime.training.ortmodule.torch_cpp_extensions.install && /build/RelWithDebInfo/launch_test.py --cmd_line_with_args 'python orttraining_ortmodule_distributed_tests.py --mnist /mnist' --cwd /build/RelWithDebInfo" \
       displayName: 'Run orttraining_ortmodule_distributed_tests.py'
@@ -97,7 +122,7 @@ stages:
           --volume $(Build.BinariesDirectory):/build \
           --volume /mnist:/mnist \
           onnxruntime_ortmodule_distributed_tests_image \
-            bash -c "rm -rf /build/RelWithDebInfo/onnxruntime/ && python3 -m pip install mpi4py && python3 -m pip install /build/RelWithDebInfo/dist/onnxruntime*.whl && mpirun -n 4 -x NCCL_DEBUG=INFO python /onnxruntime_src/onnxruntime/test/python/onnxruntime_test_collective.py" \
+            bash -c "rm -rf /build/RelWithDebInfo/onnxruntime/ && python3 -m pip install mpi4py onnxscript && python3 -m pip install /build/RelWithDebInfo/dist/onnxruntime*.whl && mpirun -n 4 -x NCCL_DEBUG=INFO python /onnxruntime_src/onnxruntime/test/python/onnxruntime_test_collective.py && mpirun -n 2 -x NCCL_DEBUG=INFO python /onnxruntime_src/onnxruntime/test/python/onnxruntime_test_distributed.py" \
       displayName: 'Run onnxruntime_test_collective.py'
       condition: succeededOrFailed()
       timeoutInMinutes: 30

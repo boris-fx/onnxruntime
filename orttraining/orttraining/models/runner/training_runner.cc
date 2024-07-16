@@ -57,6 +57,7 @@ static SessionOptions SESSION_OPTION = {
     {},                                // initializers_to_share_map
 #if !defined(ORT_MINIMAL_BUILD) && !defined(DISABLE_EXTERNAL_INITIALIZERS)
     {},  // external_initializers
+    {},  // external_initializer_files
 #endif
     nullptr,  // custom_create_thread_fn
     nullptr,  // custom_thread_creation_options
@@ -1252,7 +1253,7 @@ Status WithOrtValuesFromTensorProtos(
 
     OrtValue ort_value;
 
-    ORT_RETURN_IF_ERROR(utils::TensorProtoToMLValue(
+    ORT_RETURN_IF_ERROR(utils::TensorProtoToOrtValue(
         Env::Default(), model_location.c_str(), tensor_proto, mem_buffer,
         ort_value));
 

@@ -411,12 +411,7 @@ TEST(SoftmaxOperator, 2DInputReduceOnAxis1WithLargeDim) {
 // GlobalAveragePool being layout sensitive.
 TEST(SoftmaxOperator, GH15949_regression_test) {
   auto model_uri = ORT_TSTR("testdata/ort_github_issue_15949.onnx");
-
-  std::shared_ptr<Model> model;
-  auto status = Model::Load(model_uri, model, nullptr, GetEnvironment().GetLoggingManager()->DefaultLogger());
-
-  OpTester tester("Opset12NhwcSoftmax");
-  tester.SetModelCache(model);
+  ModelTester tester("Opset12NhwcSoftmax", model_uri);
 
   tester.AddInput<float>("X", {1, 3, 2, 2},
                          {0.f, 1.f, 2.f, 3.f,
@@ -426,7 +421,7 @@ TEST(SoftmaxOperator, GH15949_regression_test) {
                           {0.00032932f, 0.01798029f, 0.9816904f});
 
   // disable TRT as it does not support axis=0 as used by the model
-  tester.Run(OpTester::ExpectResult::kExpectSuccess, "", {kTensorrtExecutionProvider, kCoreMLExecutionProvider});
+  tester.Run(OpTester::ExpectResult::kExpectSuccess, "", {kTensorrtExecutionProvider});
 }
 
 }  // namespace test

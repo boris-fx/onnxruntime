@@ -23,8 +23,6 @@ class CastOpBuilder : public BaseOpBuilder {
  private:
   bool IsOpSupportedImpl(const InitializedTensorSet& /* initializers */, const Node& node,
                          const WebnnDeviceType device_type, const logging::Logger& logger) const override;
-
-  int GetMinSupportedOpSet(const Node& node) const override;
 };
 
 // Add operator related.
@@ -41,7 +39,11 @@ Status CastOpBuilder::AddToModelBuilderImpl(ModelBuilder& model_builder,
   std::string operand_type;
   switch (to_type) {
     case ONNX_NAMESPACE::TensorProto_DataType_BOOL:
+    case ONNX_NAMESPACE::TensorProto_DataType_UINT8:
       operand_type = "uint8";
+      break;
+    case ONNX_NAMESPACE::TensorProto_DataType_INT8:
+      operand_type = "int8";
       break;
     case ONNX_NAMESPACE::TensorProto_DataType_FLOAT16:
       operand_type = "float16";
@@ -75,11 +77,6 @@ Status CastOpBuilder::AddToModelBuilderImpl(ModelBuilder& model_builder,
 }
 
 // Operator support related.
-
-int CastOpBuilder::GetMinSupportedOpSet(const Node& /* node */) const {
-  // Since opset 6, Cast uses attribute "to" as int type.
-  return 6;
-}
 
 bool CastOpBuilder::IsOpSupportedImpl(const InitializedTensorSet& /* initializers */,
                                       const Node& node,
