@@ -89,13 +89,13 @@ void register_operator_kernel(IMLOperatorRegistry* registry, const char* opName,
         &kernelDescription,
         kernelFactory,
         shapeInferrer,
-        nullptr,
+        nullptr, // supportQuery
         false, // isInternalOperator
         false, // alias
-        false, // supportsGraph
-        nullptr,
-        nullptr,
-        0));
+        false));//, // supportsGraph
+        // nullptr,
+        // nullptr,
+        // 0));
 }
 
 template <typename op_type>
