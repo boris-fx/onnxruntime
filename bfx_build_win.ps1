@@ -17,6 +17,7 @@ Copy-Item .\build\Windows\Release\Release\onnxruntime_providers_cuda.lib .\build
 Copy-Item .\build\Windows\Release\Release\onnxruntime_providers_shared.dll .\build\dist_release\lib\.
 Copy-Item .\build\Windows\Release\Release\onnxruntime_providers_shared.lib .\build\dist_release\lib\.
 Copy-Item .\build\Windows\Release\Release\DirectML.dll .\build\dist_release\lib\.
+Copy-Item .\build\Windows\Release\Release\DirectML.Debug.dll .\build\dist_release\lib\.
 Copy-Item -r .\include .\build\dist_release\.
 
 # generate manifest for libraries with DLL hashes
