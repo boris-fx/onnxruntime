@@ -49,7 +49,7 @@ where.exe python
 # now run onnxruntime build script
 .\build.bat `
     --config Release `
-    --cmake_generator "Visual Studio 17 2022" `
+    --cmake_generator "Visual Studio 16 2019" `
     --build_shared_lib `
     --parallel `
     --use_dml `
