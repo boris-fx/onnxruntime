@@ -12,13 +12,13 @@ cd build
 # fetch CUDA dependencies from BinaryArtifacts
 BINARY_ARTIFACTS="mescola:Boris FX/Engineering/BinaryArtifacts"
 
-CUDA_SDK_NAME='cuda_11.8.0_520.61.05_linux'
-rclone copy ${BINARY_ARTIFACTS}/${CUDA_SDK_NAME}.tgz .
+CUDA_SDK_NAME=cuda_11.8.0_520.61.05_linux
+rclone copy "${BINARY_ARTIFACTS}/${CUDA_SDK_NAME}.tgz" .
 tar -xf ${CUDA_SDK_NAME}.tgz
 CUDA_HOME=$(pwd)/cuda_sdk
 
-CUDNN_NAME='cudnn-linux-x86_64-8.9.4.25_cuda11-archive'
-rclone copy ${BINARY_ARTIFACTS}/${CUDNN_NAME}.txz .
+CUDNN_NAME=cudnn-linux-x86_64-8.9.4.25_cuda11-archive
+rclone copy "${BINARY_ARTIFACTS}/${CUDNN_NAME}.txz" .
 tar -xzf ${CUDNN_NAME}.txz
 CUDNN_HOME=$(pwd)/cudnn
 cd ..
