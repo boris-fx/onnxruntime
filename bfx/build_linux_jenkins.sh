@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -a
 
 export PATH=/home/buildpc/ml/deps/cmake-3.26.1-linux-x86_64/bin:$PATH
 
