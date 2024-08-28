@@ -67,14 +67,14 @@ $DIST_DIR=".\build\${DIST_NAME}"
 mkdir $DIST_DIR
 $DIST_LIB_DIR="${DIST_DIR}\lib"
 mkdir $DIST_LIB_DIR
-Copy-Item .\build\Windows\Release\Release\onnxruntime.dll $DIST_LIB_DIR
-Copy-Item .\build\Windows\Release\Release\onnxruntime.lib $DIST_LIB_DIR
-Copy-Item .\build\Windows\Release\Release\onnxruntime_providers_cuda.dll $DIST_LIB_DIR
-Copy-Item .\build\Windows\Release\Release\onnxruntime_providers_cuda.lib $DIST_LIB_DIR
-Copy-Item .\build\Windows\Release\Release\onnxruntime_providers_shared.dll $DIST_LIB_DIR
-Copy-Item .\build\Windows\Release\Release\onnxruntime_providers_shared.lib $DIST_LIB_DIR
-Copy-Item .\build\Windows\Release\Release\DirectML.dll $DIST_LIB_DIR
-Copy-Item .\build\Windows\Release\Release\DirectML.Debug.dll $DIST_LIB_DIR
+Copy-Item .\build\Windows\Release\onnxruntime.dll $DIST_LIB_DIR
+Copy-Item .\build\Windows\Release\onnxruntime.lib $DIST_LIB_DIR
+Copy-Item .\build\Windows\Release\onnxruntime_providers_cuda.dll $DIST_LIB_DIR
+Copy-Item .\build\Windows\Release\onnxruntime_providers_cuda.lib $DIST_LIB_DIR
+Copy-Item .\build\Windows\Release\onnxruntime_providers_shared.dll $DIST_LIB_DIR
+Copy-Item .\build\Windows\Release\onnxruntime_providers_shared.lib $DIST_LIB_DIR
+Copy-Item .\build\Windows\Release\DirectML.dll $DIST_LIB_DIR
+Copy-Item .\build\Windows\Release\DirectML.Debug.dll $DIST_LIB_DIR
 Copy-Item -r .\include $DIST_DIR
 
 # generate manifest for libraries with DLL hashes
