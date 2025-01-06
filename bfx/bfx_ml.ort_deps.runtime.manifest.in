@@ -2,10 +2,12 @@
     <noInheritable></noInheritable>
     <assemblyIdentity
         type="win32"
-        name="bfx_ml.ort_dml_deps.runtime"
-        version="1.0.0.3" processorArchitecture="amd64">
+        name="bfx_ml.ort_deps.runtime"
+        version="1.0.0.4" processorArchitecture="amd64">
     </assemblyIdentity>
     <file name="DirectML.dll" hash="" hashalg="SHA1"></file>
     <file name="DirectML.Debug.dll" hash="" hashalg="SHA1"></file>
     <file name="onnxruntime.dll" hash="" hashalg="SHA1"></file>
+    <file name="onnxruntime_providers_cuda.dll" hash="" hashalg="SHA1"></file>
+    <file name="onnxruntime_providers_shared.dll" hash="" hashalg="SHA1"></file>
 </assembly>

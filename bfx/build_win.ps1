@@ -78,10 +78,10 @@ Copy-Item .\build\Windows\Release\DirectML.Debug.dll $DIST_LIB_DIR
 Copy-Item -r .\include $DIST_DIR
 
 # generate manifest for libraries with DLL hashes
-Copy-Item bfx/bfx_ml.ort_dml_deps.runtime.manifest.in  $DIST_LIB_DIR
+Copy-Item bfx/bfx_ml.ort_deps.runtime.manifest.in  $DIST_LIB_DIR
 Push-Location $DIST_LIB_DIR
-mt.exe -manifest bfx_ml.ort_dml_deps.runtime.manifest.in -hashupdate -out:bfx_ml.ort_dml_deps.runtime.manifest
-Remove-Item bfx_ml.ort_dml_deps.runtime.manifest.in
+mt.exe -manifest bfx_ml.ort_deps.runtime.manifest.in -hashupdate -out:bfx_ml.ort_deps.runtime.manifest
+Remove-Item bfx_ml.ort_deps.runtime.manifest.in
 Pop-Location
 
 # make zip archive!
