@@ -3,7 +3,7 @@
     <assemblyIdentity
         type="win32"
         name="bfx_ml.ort_deps.runtime"
-        version="1.0.0.4" processorArchitecture="amd64">
+        version="1.0.0.5" processorArchitecture="amd64">
     </assemblyIdentity>
     <file name="DirectML.dll" hash="" hashalg="SHA1"></file>
     <file name="DirectML.Debug.dll" hash="" hashalg="SHA1"></file>
