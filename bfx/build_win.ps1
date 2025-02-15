@@ -20,12 +20,12 @@ Push-Location build
     $CUDA_SDK_NAME='cuda-sdk-win-v11.8'
     rclone copy ($BINARY_ARTIFACTS + '/' + $CUDA_SDK_NAME + '.zip') .
     tar -xzf ($CUDA_SDK_NAME + '.zip')
-    $CUDA_HOME = "$(Get-Location)\${CUDA_SDK_NAME}"
+    $CUDA_HOME = "$(Get-Location)\${CUDA_SDK_NAME}" -replace '\\', '/'
 
     $CUDNN_NAME='cudnn-windows-x86_64-8.9.1.23_cuda11-archive'
     rclone copy ($BINARY_ARTIFACTS + '/' + $CUDNN_NAME + '.zip') .
     tar -xzf ($CUDNN_NAME + '.zip')
-    $CUDNN_HOME = "$(Get-Location)\${CUDNN_NAME}"
+    $CUDNN_HOME = "$(Get-Location)\${CUDNN_NAME}" -replace '\\', '/'
 Pop-Location
 
 conda activate base; CheckForErrors;
