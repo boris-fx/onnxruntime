@@ -17,12 +17,12 @@ Push-Location build
     # fetch CUDA dependencies from BinaryArtifacts
     $BINARY_ARTIFACTS = 'mescola:Boris FX/Engineering/BinaryArtifacts'
 
-    $CUDA_SDK_NAME='cuda-sdk-win-v11.8'
+    $CUDA_SDK_NAME='cuda-sdk-win-v12.4.1'
     rclone copy ($BINARY_ARTIFACTS + '/' + $CUDA_SDK_NAME + '.zip') .
     tar -xzf ($CUDA_SDK_NAME + '.zip')
     $CUDA_HOME = "$(Get-Location)\${CUDA_SDK_NAME}" -replace '\\', '/'
 
-    $CUDNN_NAME='cudnn-windows-x86_64-8.9.7.29_cuda11-archive'
+    $CUDNN_NAME='cudnn-windows-x86_64-8.9.7.29_cuda12-archive'
     rclone copy ($BINARY_ARTIFACTS + '/' + $CUDNN_NAME + '.zip') .
     tar -xzf ($CUDNN_NAME + '.zip')
     $CUDNN_HOME = "$(Get-Location)\${CUDNN_NAME}" -replace '\\', '/'
