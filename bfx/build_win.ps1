@@ -57,7 +57,7 @@ where.exe python
     --cuda_home $CUDA_HOME `
     --cudnn_home $CUDNN_HOME `
     --skip_tests `
-    --cmake_extra_defines onnxruntime_BUILD_UNIT_TESTS=OFF
+    --cmake_extra_defines onnxruntime_BUILD_UNIT_TESTS=OFF onnxruntime_USE_FLASH_ATTENTION=OFF
 
 # can incremental build too after initial call to .\build.bat
 # cmake --build .\build\Windows\Release -j12 --config Release
