@@ -16,7 +16,7 @@ set /p GIT_HASH=<temp.txt
 del temp.txt
 set GIT_HASH=%GIT_HASH:~0,7%
 
-set DIST_NAME=libonnxruntime-%ORT_VERSION%_win_cu118-dml-1.15.2_%GIT_HASH%_%BUILD_NUMBER%
+set DIST_NAME=libonnxruntime-%ORT_VERSION%_win_cu124-dml-1.15.2_%GIT_HASH%_%BUILD_NUMBER%
 
 Powershell.exe -File bfx/build_win.ps1 %DIST_NAME%
 
