@@ -22,7 +22,7 @@ Push-Location build
     tar -xzf ($CUDA_SDK_NAME + '.zip')
     $CUDA_HOME = "$(Get-Location)\${CUDA_SDK_NAME}" -replace '\\', '/'
 
-    $CUDNN_NAME='cudnn-windows-x86_64-8.9.1.23_cuda11-archive'
+    $CUDNN_NAME='cudnn-windows-x86_64-8.9.7.29_cuda11-archive'
     rclone copy ($BINARY_ARTIFACTS + '/' + $CUDNN_NAME + '.zip') .
     tar -xzf ($CUDNN_NAME + '.zip')
     $CUDNN_HOME = "$(Get-Location)\${CUDNN_NAME}" -replace '\\', '/'

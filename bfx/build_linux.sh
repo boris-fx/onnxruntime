@@ -17,7 +17,7 @@ rclone copy "${BINARY_ARTIFACTS}/${CUDA_SDK_NAME}.tgz" .
 tar -xf ${CUDA_SDK_NAME}.tgz
 CUDA_HOME=$(pwd)/${CUDA_SDK_NAME}
 
-CUDNN_NAME=cudnn-linux-x86_64-8.9.4.25_cuda11-archive
+CUDNN_NAME=cudnn-linux-x86_64-8.9.7.29_cuda11-archive
 rclone copy "${BINARY_ARTIFACTS}/${CUDNN_NAME}.txz" .
 tar -xf ${CUDNN_NAME}.txz
 CUDNN_HOME=$(pwd)/${CUDNN_NAME}
