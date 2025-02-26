@@ -33,7 +33,7 @@ conda activate base
     --cudnn_home $CUDNN_HOME \
     --skip_tests \
     --cmake_extra_defines \
-        onnxruntime_BUILD_UNIT_TESTS=OFF
+        onnxruntime_BUILD_UNIT_TESTS=OFF onnxruntime_USE_FLASH_ATTENTION=OFF
 
 # put into release dir
 mkdir build/dist_release
