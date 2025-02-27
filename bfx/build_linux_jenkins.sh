@@ -7,7 +7,7 @@ source scl_source enable devtoolset-9
 
 ORT_VERSION=1.20.2
 BUILD_ID=$(date '+%Y-%m-%d')_$(git rev-parse --short HEAD)_${BUILD_NUMBER}
-DIST_NAME=libonnxruntime-${ORT_VERSION}_linux_cu118_${BUILD_ID}
+DIST_NAME=libonnxruntime-${ORT_VERSION}_linux_cu124_${BUILD_ID}
 
 ./bfx/build_linux.sh $DIST_NAME
 
