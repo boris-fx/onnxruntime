@@ -6,6 +6,8 @@ $PSDefaultParameterValues['*:ErrorAction']='Stop';
 function CheckForErrors { if (-not $?) { throw 'Failure!'; } }
 
 $DIST_NAME = $args[0]
+# should be either 'Release' or 'Debug'
+$BUILD_CONFIG = $args[1] ?? 'Release'
 
 Write-Output "starting onnxruntime build: ${DIST_NAME}"
 
@@ -48,7 +50,7 @@ where.exe python
 '-- running build --';
 # now run onnxruntime build script
 .\build.bat `
-    --config Release `
+    --config $BUILD_CONFIG `
     --cmake_generator "Ninja" `
     --build_shared_lib `
     --parallel `
@@ -60,21 +62,27 @@ where.exe python
     --cmake_extra_defines onnxruntime_BUILD_UNIT_TESTS=OFF onnxruntime_USE_FLASH_ATTENTION=OFF
 
 # can incremental build too after initial call to .\build.bat
-# cmake --build .\build\Windows\Release -j12 --config Release
+# cmake --build .\build\Windows\$BUILD_CONFIG -j12 --config $BUILD_CONFIG
 
-# rm -r -Force .\build\dist_release
 $DIST_DIR=".\build\${DIST_NAME}"
 mkdir $DIST_DIR
 $DIST_LIB_DIR="${DIST_DIR}\lib"
 mkdir $DIST_LIB_DIR
-Copy-Item .\build\Windows\Release\onnxruntime.dll $DIST_LIB_DIR
-Copy-Item .\build\Windows\Release\onnxruntime.lib $DIST_LIB_DIR
-Copy-Item .\build\Windows\Release\onnxruntime_providers_cuda.dll $DIST_LIB_DIR
-Copy-Item .\build\Windows\Release\onnxruntime_providers_cuda.lib $DIST_LIB_DIR
-Copy-Item .\build\Windows\Release\onnxruntime_providers_shared.dll $DIST_LIB_DIR
-Copy-Item .\build\Windows\Release\onnxruntime_providers_shared.lib $DIST_LIB_DIR
-Copy-Item .\build\Windows\Release\DirectML.dll $DIST_LIB_DIR
-Copy-Item .\build\Windows\Release\DirectML.Debug.dll $DIST_LIB_DIR
+Copy-Item .\build\Windows\$BUILD_CONFIG\onnxruntime.dll $DIST_LIB_DIR
+Copy-Item .\build\Windows\$BUILD_CONFIG\onnxruntime.lib $DIST_LIB_DIR
+Copy-Item .\build\Windows\$BUILD_CONFIG\onnxruntime_providers_cuda.dll $DIST_LIB_DIR
+Copy-Item .\build\Windows\$BUILD_CONFIG\onnxruntime_providers_cuda.lib $DIST_LIB_DIR
+Copy-Item .\build\Windows\$BUILD_CONFIG\onnxruntime_providers_shared.dll $DIST_LIB_DIR
+Copy-Item .\build\Windows\$BUILD_CONFIG\onnxruntime_providers_shared.lib $DIST_LIB_DIR
+Copy-Item .\build\Windows\$BUILD_CONFIG\DirectML.dll $DIST_LIB_DIR
+Copy-Item .\build\Windows\$BUILD_CONFIG\DirectML.Debug.dll $DIST_LIB_DIR
+if ($BUILD_CONFIG -eq 'Debug') {
+    Copy-Item .\build\Windows\$BUILD_CONFIG\onnxruntime.pdb $DIST_LIB_DIR
+    Copy-Item .\build\Windows\$BUILD_CONFIG\onnxruntime_providers_cuda.pdb $DIST_LIB_DIR
+    Copy-Item .\build\Windows\$BUILD_CONFIG\onnxruntime_providers_shared.pdb $DIST_LIB_DIR
+    Copy-Item .\build\Windows\$BUILD_CONFIG\DirectML.pdb $DIST_LIB_DIR
+    Copy-Item .\build\Windows\$BUILD_CONFIG\DirectML.Debug.pdb $DIST_LIB_DIR
+}
 Copy-Item -r .\include $DIST_DIR
 
 # generate manifest for libraries with DLL hashes
