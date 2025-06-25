@@ -7,7 +7,7 @@ function CheckForErrors { if (-not $?) { throw 'Failure!'; } }
 
 $DIST_NAME = $args[0]
 # should be either 'Release' or 'Debug'
-$BUILD_CONFIG = $args[1] ?? 'Release'
+$BUILD_CONFIG = if ($args[1]) { $args[1] } else { 'Release' }
 
 Write-Output "starting onnxruntime build: ${DIST_NAME}"
 
