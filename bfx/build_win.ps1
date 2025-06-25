@@ -5,9 +5,9 @@ Set-StrictMode -Version Latest;
 $PSDefaultParameterValues['*:ErrorAction']='Stop';
 function CheckForErrors { if (-not $?) { throw 'Failure!'; } }
 
-$DIST_NAME = $args[0]
+$DIST_NAME = if ($args.Count -gt 0) { $args[0] } else { throw 'DIST_NAME argument is required' }
 # should be either 'Release' or 'Debug'
-$BUILD_CONFIG = if ($args[1]) { $args[1] } else { 'Release' }
+$BUILD_CONFIG = if ($args.Count -gt 1) { $args[1] } else { 'Release' }
 
 Write-Output "starting onnxruntime build: ${DIST_NAME}"
 
