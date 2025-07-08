@@ -23,6 +23,8 @@ tar -xf ${CUDNN_NAME}.txz
 CUDNN_HOME=$(pwd)/${CUDNN_NAME}
 cd ..
 
+CMAKE_CUDA_ARCHITECTURES="60-real;61-real;70-real;75-real;80-real;86-real;89-real;90a-real;90-real;90-virtual"
+
 eval "$(conda shell.bash hook)"
 conda activate base
 
@@ -33,6 +35,7 @@ conda activate base
     --cudnn_home $CUDNN_HOME \
     --skip_tests \
     --cmake_extra_defines \
+        CMAKE_CUDA_ARCHITECTURES=$CMAKE_CUDA_ARCHITECTURES \
         onnxruntime_BUILD_UNIT_TESTS=OFF onnxruntime_USE_FLASH_ATTENTION=OFF
 
 # put into release dir

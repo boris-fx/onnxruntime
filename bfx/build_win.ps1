@@ -30,6 +30,8 @@ Push-Location build
     $CUDNN_HOME = "$(Get-Location)\${CUDNN_NAME}" -replace '\\', '/'
 Pop-Location
 
+$CMAKE_CUDA_ARCHITECTURES = "60-real;61-real;70-real;75-real;80-real;86-real;89-real;90a-real;90-real;90-virtual"
+
 conda activate base; CheckForErrors;
 
 '-- MSVC compiler info --';
@@ -59,7 +61,9 @@ where.exe python
     --cuda_home $CUDA_HOME `
     --cudnn_home $CUDNN_HOME `
     --skip_tests `
-    --cmake_extra_defines onnxruntime_BUILD_UNIT_TESTS=OFF onnxruntime_USE_FLASH_ATTENTION=OFF
+    --cmake_extra_defines `
+        CMAKE_CUDA_ARCHITECTURES=$CMAKE_CUDA_ARCHITECTURES `
+        onnxruntime_BUILD_UNIT_TESTS=OFF onnxruntime_USE_FLASH_ATTENTION=OFF
 
 # can incremental build too after initial call to .\build.bat
 # cmake --build .\build\Windows\$BUILD_CONFIG -j12 --config $BUILD_CONFIG
