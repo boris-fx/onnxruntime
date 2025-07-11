@@ -15,22 +15,24 @@ Write-Output "starting onnxruntime build: ${DIST_NAME}"
 if (Test-Path build) { Remove-Item -r -Force build }
 mkdir build
 
+$CUDA_SDK_NAME='cuda-sdk-win-v12.8.1'
+$CUDNN_NAME='cudnn-windows-x86_64-9.10.2.21_cuda12-archive'
+
 Push-Location build
     # fetch CUDA dependencies from BinaryArtifacts
     $BINARY_ARTIFACTS = 'mescola:Boris FX/Engineering/BinaryArtifacts'
 
-    $CUDA_SDK_NAME='cuda-sdk-win-v12.4.1'
     rclone copy ($BINARY_ARTIFACTS + '/' + $CUDA_SDK_NAME + '.zip') .
     tar -xzf ($CUDA_SDK_NAME + '.zip')
     $CUDA_HOME = "$(Get-Location)\${CUDA_SDK_NAME}" -replace '\\', '/'
 
-    $CUDNN_NAME='cudnn-windows-x86_64-8.9.7.29_cuda12-archive'
     rclone copy ($BINARY_ARTIFACTS + '/' + $CUDNN_NAME + '.zip') .
     tar -xzf ($CUDNN_NAME + '.zip')
     $CUDNN_HOME = "$(Get-Location)\${CUDNN_NAME}" -replace '\\', '/'
 Pop-Location
 
-$CMAKE_CUDA_ARCHITECTURES = "60-real;61-real;70-real;75-real;80-real;86-real;89-real;90a-real;90-real;90-virtual"
+$CMAKE_CUDA_FLAGS = "-static-global-template-stub=false" # this needed for compilation when switching to CU 12.8 from 12.4
+$CMAKE_CUDA_ARCHITECTURES = "60-real;61-real;70-real;75-real;80-real;86-real;89-real;90a-real;90-real;90-virtual;120-real;120-virtual"
 
 conda activate base; CheckForErrors;
 
@@ -62,6 +64,7 @@ where.exe python
     --cudnn_home $CUDNN_HOME `
     --skip_tests `
     --cmake_extra_defines `
+        CMAKE_CUDA_FLAGS=$CMAKE_CUDA_FLAGS `
         CMAKE_CUDA_ARCHITECTURES=$CMAKE_CUDA_ARCHITECTURES `
         onnxruntime_BUILD_UNIT_TESTS=OFF onnxruntime_USE_FLASH_ATTENTION=OFF
 
