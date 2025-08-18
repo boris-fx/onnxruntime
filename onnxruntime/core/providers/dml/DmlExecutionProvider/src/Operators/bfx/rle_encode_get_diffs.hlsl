@@ -10,7 +10,7 @@ RWStructuredBuffer<T_diffs> els          : register(u0); // n,
 RWStructuredBuffer<T_idxs>  nonzero_mask : register(u1); // n,
 RWStructuredBuffer<T_diffs> diffs        : register(u2); // n,
 
-#include "rle_encode_get_diffs_shader_constants.h"
+#include "rle_encode_get_diffs_hlsl.h"
 
 [numthreads(256, 1, 1)]
 void rle_encode_get_diffs(uint3 dtid : SV_DispatchThreadId)

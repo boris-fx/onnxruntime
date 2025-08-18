@@ -72,7 +72,7 @@ public:
                 auto dims = shapeInfo.GetInputTensorShape(0);
                 assert(dims.size() == rank);
                 assert(1 == dims[0]);
-                assert(5 == dims[1]);
+                assert(7 == dims[1]);
                 assert(1 == dims[2]);
                 assert(1 == dims[3]);
             }

@@ -1,5 +1,9 @@
 @echo off
 
+REM  generated shader bytecode is checked into source control. to update bytecode, run:
+REM   cd .\onnxruntime\core\providers\dml\DmlExecutionProvider\src\Operators\bfx
+REM   .\GenerateShaders.bat
+
 if "%1" == "DEBUG" (
     echo "WARNING: Compiling shaders for DEBUG configuration; do not check generated header files into the repo!"
 

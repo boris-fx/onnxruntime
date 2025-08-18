@@ -21,10 +21,12 @@ void make_multiscale_upres_sample_grid(uint3 dtid : SV_DispatchThreadId)
     const float y_start_hq = exec_config[1];
     const float x_start_lq = exec_config[2];
     const float y_start_lq = exec_config[3];
-    const float scale =      exec_config[4];
+    const float x_center = exec_config[4];
+    const float y_center = exec_config[5];
+    const float scale =      exec_config[6];
 
-    const float x_norm = (((x_tile + x_start_hq + 0.5f) / scale) - x_start_lq) / tile_width;
-    const float y_norm = (((y_tile + y_start_hq + 0.5f) / scale) - y_start_lq) / tile_height;
+    const float x_norm = ((((x_tile + x_start_hq + 0.5f - x_center) / scale) - x_start_lq) + x_center) / tile_width;
+    const float y_norm = ((((y_tile + y_start_hq + 0.5f - y_center) / scale) - y_start_lq) + y_center) / tile_height;
 
     float x_ndc = (x_norm * 2.f) - 1.f;
     float y_ndc = (y_norm * 2.f) - 1.f;

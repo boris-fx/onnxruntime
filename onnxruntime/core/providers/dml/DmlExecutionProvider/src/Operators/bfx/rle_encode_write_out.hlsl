@@ -11,7 +11,7 @@ RWStructuredBuffer<T_idxs>  idxes_out            : register(u1); // n,
 RWStructuredBuffer<T_diffs> diffs_in             : register(u2); // n,
 RWStructuredBuffer<T_diffs> diffs_out            : register(u3); // n,
 
-#include "rle_encode_write_out_shader_constants.h"
+#include "rle_encode_write_out_hlsl.h"
 
 [numthreads(256, 1, 1)]
 void rle_encode_write_out(uint3 dtid : SV_DispatchThreadId)
