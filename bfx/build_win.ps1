@@ -85,7 +85,8 @@ conda --version; CheckForErrors;
 python --version; CheckForErrors;
 where.exe python
 
-$COMMON_BUILD_ARGS = "python tools/ci_build/build.py --config ${BUILD_CONFIG} --build_shared_lib --parallel --use_dml --skip_tests"
+$COMMON_BUILD_ARGS = "python tools\ci_build\build.py --config ${BUILD_CONFIG} --build_shared_lib --parallel --use_dml --skip_tests"
+$COMMON_BUILD_DIR = "$(Get-Location)\build"
 
 $DIST_DIR="$(Get-Location)\build\${DIST_NAME}"
 $DIST_LIB_DIR="${DIST_DIR}\lib"
@@ -94,14 +95,14 @@ mkdir $DIST_LIB_DIR
 Copy-Item -r .\include $DIST_DIR
 
 $X86_64_NAME = "x86_64"
-$X86_64_BUILD_DIR = "$(Get-Location)\build\${X86_64_NAME}"
+$X86_64_BUILD_DIR = "${COMMON_BUILD_DIR}\${X86_64_NAME}"
 $X86_64_DIST_LIB_DIR="${DIST_LIB_DIR}\${X86_64_NAME}"
 $X86_64_CMAKE_EXTRA_DEFINES = "CMAKE_CUDA_FLAGS=${CMAKE_CUDA_FLAGS} CMAKE_CUDA_ARCHITECTURES=${CMAKE_CUDA_ARCHITECTURES} onnxruntime_BUILD_UNIT_TESTS=OFF onnxruntime_USE_FLASH_ATTENTION=OFF"
 $X86_64_ARGS = "--cmake_generator Ninja --use_cuda --cuda_home ${CUDA_HOME} --cudnn_home ${CUDNN_HOME} --cmake_extra_defines ${X86_64_CMAKE_EXTRA_DEFINES}"
 $X86_64_BUILD_CMD = "${COMMON_BUILD_ARGS} --build_dir ${X86_64_BUILD_DIR}  ${X86_64_ARGS}"
 
 $ARM64_NAME = "arm64"
-$ARM64_BUILD_DIR = "$(Get-Location)\build\${ARM64_NAME}"
+$ARM64_BUILD_DIR = "${COMMON_BUILD_DIR}\${ARM64_NAME}"
 $ARM64_DIST_LIB_DIR="${DIST_LIB_DIR}\${ARM64_NAME}"
 # Building w/ Ninja fails on arm64, so build w/ MSBuild for MSVC 17
 # probably would only require a few small tweaks to make Ninja run, but no need

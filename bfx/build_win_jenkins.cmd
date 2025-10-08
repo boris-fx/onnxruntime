@@ -25,7 +25,8 @@ Powershell.exe -File bfx/build_win.ps1 %DIST_NAME% || goto :error
 
 rclone copy build\%DIST_NAME%.zip "mescola:Boris FX/Engineering/BinaryArtifacts"
 
-EXIT 0
+:;
+exit /b 0
 
 :error
 echo ERROR: %errorlevel%
