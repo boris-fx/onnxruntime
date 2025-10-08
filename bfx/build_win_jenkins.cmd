@@ -21,8 +21,12 @@ set BUILD_ID=%BUILD_DATE%_%GIT_HASH%_%BUILD_NUMBER%
 
 set DIST_NAME=libonnxruntime-%ORT_VERSION%_win_cu128-dml-1.15.4_%BUILD_ID%
 
-Powershell.exe -File bfx/build_win.ps1 %DIST_NAME%
+Powershell.exe -File bfx/build_win.ps1 %DIST_NAME% || goto :error
 
 rclone copy build\%DIST_NAME%.zip "mescola:Boris FX/Engineering/BinaryArtifacts"
 
 EXIT 0
+
+:error
+echo ERROR: %errorlevel%
+exit /b %errorlevel%
