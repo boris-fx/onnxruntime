@@ -114,7 +114,7 @@ $ARM64_BUILD_CMD = "${COMMON_BUILD_ARGS} --build_dir ${ARM64_BUILD_DIR}  ${ARM64
     # build
     '-- running build (arm64) --';
     "-- command: `"${ARM64_BUILD_CMD}`""
-    cmd /c "`"${VCVARS_ARM64}`" & ${ARM64_BUILD_CMD}"
+    cmd /c "`"${VCVARS_ARM64}`" & cl & ${ARM64_BUILD_CMD}"
 
     # package
     mkdir $ARM64_DIST_LIB_DIR
@@ -140,7 +140,7 @@ $ARM64_BUILD_CMD = "${COMMON_BUILD_ARGS} --build_dir ${ARM64_BUILD_DIR}  ${ARM64
     # build
     '-- running build (x86_64) --';
     "-- command: `"${X86_64_BUILD_CMD}`""
-    cmd /c "`"${VCVARS_X86_64}`" & ${X86_64_BUILD_CMD}"
+    cmd /c "`"${VCVARS_X86_64}`" & cl & ${X86_64_BUILD_CMD}"
 
     # package
     mkdir $X86_64_DIST_LIB_DIR
