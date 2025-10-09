@@ -2,12 +2,8 @@
 
 cd %WORKSPACE%
 
-SET VCVARS_X86_64=C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\VC\Auxiliary\Build\vcvars64.bat
-SET VCVARS_ARM64=C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\VC\Auxiliary\Build\vcvarsamd64_arm64.bat
-
-REM jenkins adds a path to jre that is wrapped by double quotes to PATH and __VSCMD_PREINIT_PATH. remove the double quotes to make msvc & nvcc happy!
-SET PATH=%PATH:"=%
-SET __VSCMD_PREINIT_PATH=%__VSCMD_PREINIT_PATH:"=%
+SET VCVARS_X86_64=C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvars64.bat
+SET VCVARS_ARM64=C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsamd64_arm64.bat
 
 set ORT_VERSION=1.20.2
 
