@@ -17,8 +17,8 @@ if (-not (Get-Command cl -ErrorAction SilentlyContinue)) {
 }
 
 # allow env to specify VCVARS variables, otherwise fall back to default for MSVC 2019 community
-$VCVARS_X86_64 = if ($env:VCVARS_X86_64) { $env:VCVARS_X86_64 } else { 'C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat' }
-$VCVARS_ARM64  = if ($env:VCVARS_ARM64) { $env:VCVARS_ARM64 } else { 'C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsamd64_arm64.bat' }
+$VCVARS_X86_64 = if ($env:VCVARS_X86_64) { $env:VCVARS_X86_64 } else { 'C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat' }
+$VCVARS_ARM64  = if ($env:VCVARS_ARM64) { $env:VCVARS_ARM64 } else { 'C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsamd64_arm64.bat' }
 if (-not (Test-Path -Path $VCVARS_X86_64 -PathType Leaf)) { throw "specified X86_64 VCVARS path not found: ${VCVARS_X86_64}" }
 if (-not (Test-Path -Path $VCVARS_ARM64 -PathType Leaf)) { throw "specified ARM64 VCVARS path not found: ${VCVARS_ARM64}" }
 Write-Output "VCVARS for x86_64: ${VCVARS_X86_64}"

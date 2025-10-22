@@ -51,6 +51,8 @@ endif()
 if (MSVC)
   #  Make sure Visual Studio sets __cplusplus macro correctly: https://learn.microsoft.com/en-us/cpp/build/reference/zc-cplusplus
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:__cplusplus")
+  # issue w/ mutex constructor and vs2022 when the system provides an older msvcp140.dll
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR")
 endif()
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
