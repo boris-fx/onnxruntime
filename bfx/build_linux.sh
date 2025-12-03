@@ -60,6 +60,24 @@ conda activate base
         CMAKE_CUDA_ARCHITECTURES=$CMAKE_CUDA_ARCHITECTURES \
         onnxruntime_BUILD_UNIT_TESTS=OFF onnxruntime_USE_FLASH_ATTENTION=OFF
 
+if [[ "$CUDA_VERSION" == "124" ]]; then
+    echo TODO: add full cuDNN 8 versions to libonnxruntime_providers_cuda.so
+elif [[ "$CUDA_VERSION" == "128" ]]; then
+    # convert libonnxruntime_providers_cuda.so to use full cudnn library names to avoid conflicts with hosts that have their own cuDNN!
+    patchelf --replace-needed libcudnn.so.9                             libcudnn.so.9.10.2                                  build/Linux/Release/libonnxruntime_providers_cuda.so
+    patchelf --replace-needed libcudnn_adv.so.9                         libcudnn_adv.so.9.10.2                              build/Linux/Release/libonnxruntime_providers_cuda.so
+    patchelf --replace-needed libcudnn_ops.so.9                         libcudnn_ops.so.9.10.2                              build/Linux/Release/libonnxruntime_providers_cuda.so
+    patchelf --replace-needed libcudnn_cnn.so.9                         libcudnn_cnn.so.9.10.2                              build/Linux/Release/libonnxruntime_providers_cuda.so
+    patchelf --replace-needed libcudnn_graph.so.9                       libcudnn_graph.so.9.10.2                            build/Linux/Release/libonnxruntime_providers_cuda.so
+    patchelf --replace-needed libcudnn_engines_runtime_compiled.so.9    libcudnn_engines_runtime_compiled.so.9.10.2         build/Linux/Release/libonnxruntime_providers_cuda.so
+    patchelf --replace-needed libcudnn_engines_precompiled.so.9         libcudnn_engines_precompiled.so.9.10.2              build/Linux/Release/libonnxruntime_providers_cuda.so
+    patchelf --replace-needed libcudnn_heuristic.so.9                   libcudnn_heuristic.so.9.10.2                        build/Linux/Release/libonnxruntime_providers_cuda.so
+else
+    # chouldn't get here anyway...
+    echo "Unknown CUDA_VERSION passed to build script: ${CUDA_VERSION}. Must be 124 or 128"
+    exit 1
+fi
+
 # put into release dir
 mkdir build/dist_release
 mkdir build/dist_release/lib
