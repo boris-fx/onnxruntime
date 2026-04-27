@@ -59,7 +59,7 @@ conda activate ort_build
     --cmake_extra_defines \
         CMAKE_CUDA_FLAGS=$CMAKE_CUDA_FLAGS \
         CMAKE_CUDA_ARCHITECTURES=$CMAKE_CUDA_ARCHITECTURES \
-        onnxruntime_BUILD_UNIT_TESTS=OFF onnxruntime_USE_FLASH_ATTENTION=OFF
+        onnxruntime_BUILD_UNIT_TESTS=OFF onnxruntime_USE_FLASH_ATTENTION:BOOL=OFF
 
 if [[ "$CUDA_VERSION" == "124" ]]; then
     echo TODO: add full cuDNN 8 versions to libonnxruntime_providers_cuda.so
