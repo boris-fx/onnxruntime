@@ -6,11 +6,11 @@ export PATH=/home/buildpc/ml/deps/cmake-3.31.0-linux-x86_64/bin:$PATH
 if [[ "$NODE_NAME" == "borg" ]]; then
     CUDA_VERSION=128
     DIST_NAME_COMPATIBILITY_STR=vfx2023
-    source scl_source enable gcc-toolset-9
+    source scl_source enable gcc-toolset-11
 elif [[ "$NODE_NAME" == "steel" ]]; then
     CUDA_VERSION=124
     DIST_NAME_COMPATIBILITY_STR=vfx2022
-    source scl_source enable devtoolset-9
+    source scl_source enable devtoolset-11
 else
     echo "Unknown NODE_NAME env variable: ${NODE_NAME}. Script is only configured to build on 'borg' and 'steel' nodes"
     exit 1
