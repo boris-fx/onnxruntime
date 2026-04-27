@@ -47,7 +47,8 @@ CUDNN_HOME=$(pwd)/${CUDNN_NAME}
 cd ..
 
 eval "$(conda shell.bash hook)"
-conda activate base
+conda create -n ort_build python=3.12 -y 2>/dev/null || true
+conda activate ort_build
 
 ./build.sh --config Release \
     --build_shared_lib \
