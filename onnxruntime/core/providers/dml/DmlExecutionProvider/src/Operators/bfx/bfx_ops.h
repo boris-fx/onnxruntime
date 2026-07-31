@@ -91,25 +91,14 @@ void register_operator_kernel(IMLOperatorRegistry* registry, const char* opName,
         shapeInferrer,
         nullptr, // supportQuery
         false, // isInternalOperator
-        false, // alias
-        false)); //supportsGraph
+        false, //supportsGraph
+        nullptr, //requiredInputCountForGraph
+        nullptr, //requiredConstantCpuInputsm
+        0, // constantCpuInputCount
+        nullptr, // aliases
+        0)); // aliasCount
 }
 
-template <typename op_type>
-void register_operator_kernel(IMLOperatorRegistry* registry)
-{
-    auto shapeInferrer = wil::MakeOrThrow<shape_inferrer<op_type>>();
-    auto factory = wil::MakeOrThrow<op_factory<custom_op<op_type>>>();
-    register_operator_kernel(registry, op_type::op_name, factory.Get(), shapeInferrer.Get());
-}
-
-template <typename op_type>
-void register_operator_kernel2(IMLOperatorRegistry* registry)
-{
-    auto shapeInferrer = wil::MakeOrThrow<shape_inferrer2<op_type>>();
-    auto factory = wil::MakeOrThrow<op_factory<op_type>>();
-    register_operator_kernel(registry, op_type::op_name, factory.Get(), shapeInferrer.Get());
-}
 
 // util
 std::vector<uint32_t> GetTensorDimensions(IMLOperatorTensor* tensor)
@@ -504,5 +493,21 @@ public:
         return S_OK;
     }
 };
+
+template <typename op_type>
+void register_operator_kernel(IMLOperatorRegistry* registry)
+{
+    auto shapeInferrer = wil::MakeOrThrow<shape_inferrer<op_type>>();
+    auto factory = wil::MakeOrThrow<op_factory<custom_op<op_type>>>();
+    register_operator_kernel(registry, op_type::op_name, factory.Get(), shapeInferrer.Get());
+}
+
+template <typename op_type>
+void register_operator_kernel2(IMLOperatorRegistry* registry)
+{
+    auto shapeInferrer = wil::MakeOrThrow<shape_inferrer2<op_type>>();
+    auto factory = wil::MakeOrThrow<op_factory<op_type>>();
+    register_operator_kernel(registry, op_type::op_name, factory.Get(), shapeInferrer.Get());
+}
 
 }

@@ -5,7 +5,7 @@ cd %WORKSPACE%
 SET VCVARS_X86_64=C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvars64.bat
 SET VCVARS_ARM64=C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsamd64_arm64.bat
 
-set ORT_VERSION=1.24.4
+set ORT_VERSION=1.27.1
 
 REM is this really the best way to do this in CMD???
 >temp.txt ( git rev-parse --short HEAD )
