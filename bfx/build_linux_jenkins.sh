@@ -16,7 +16,7 @@ else
     exit 1
 fi
 
-ORT_VERSION=1.24.4
+ORT_VERSION=1.27.1
 BUILD_ID=$(date '+%Y-%m-%d')_$(git rev-parse --short HEAD)_${BUILD_NUMBER}
 DIST_NAME=libonnxruntime-${ORT_VERSION}_linux_${DIST_NAME_COMPATIBILITY_STR}_cu${CUDA_VERSION}_${BUILD_ID}
 

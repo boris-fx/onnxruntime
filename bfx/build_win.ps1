@@ -85,7 +85,7 @@ conda --version; CheckForErrors;
 python --version; CheckForErrors;
 where.exe python
 
-$COMMON_BUILD_ARGS = "python tools\ci_build\build.py --config ${BUILD_CONFIG} --build_shared_lib --parallel 4 --use_dml --skip_tests"
+$COMMON_BUILD_ARGS = "python tools\ci_build\build.py --config ${BUILD_CONFIG} --build_shared_lib --parallel 4 --use_dml --skip_tests --use_webgpu shared_lib"
 $COMMON_BUILD_DIR = "$(Get-Location)\build"
 
 $DIST_DIR="$(Get-Location)\build\${DIST_NAME}"
@@ -97,7 +97,7 @@ Copy-Item -r .\include $DIST_DIR
 $X86_64_NAME = "x86_64"
 $X86_64_BUILD_DIR = "${COMMON_BUILD_DIR}\${X86_64_NAME}"
 $X86_64_DIST_LIB_DIR="${DIST_LIB_DIR}\${X86_64_NAME}"
-$X86_64_CMAKE_EXTRA_DEFINES = "CMAKE_CUDA_FLAGS=${CMAKE_CUDA_FLAGS} CMAKE_CUDA_ARCHITECTURES=${CMAKE_CUDA_ARCHITECTURES} onnxruntime_BUILD_UNIT_TESTS=OFF onnxruntime_USE_FLASH_ATTENTION:BOOL=OFF"
+$X86_64_CMAKE_EXTRA_DEFINES = "CMAKE_CUDA_FLAGS=${CMAKE_CUDA_FLAGS} CMAKE_CUDA_ARCHITECTURES=${CMAKE_CUDA_ARCHITECTURES} onnxruntime_BUILD_UNIT_TESTS=OFF onnxruntime_USE_FLASH_ATTENTION:BOOL=ON"
 $X86_64_ARGS = "--cmake_generator Ninja --use_cuda --cuda_home ${CUDA_HOME} --cudnn_home ${CUDNN_HOME} --cmake_extra_defines ${X86_64_CMAKE_EXTRA_DEFINES}"
 $X86_64_BUILD_CMD = "${COMMON_BUILD_ARGS} --build_dir ${X86_64_BUILD_DIR}  ${X86_64_ARGS}"
 
@@ -107,34 +107,7 @@ $ARM64_DIST_LIB_DIR="${DIST_LIB_DIR}\${ARM64_NAME}"
 # Building w/ Ninja fails on arm64, so build w/ MSBuild for MSVC 17
 # probably would only require a few small tweaks to make Ninja run, but no need
 # the x86_64 build fails when running MSVC generator, due to 'visual studio integration' not being present on the CUDA SDK artifact (cuda_sdk/extras/visual_studio_integration/MSBuildExtensions)
-$ARM64_ARGS = '--cmake_generator "Visual Studio 17 2022" --arm64'
-$ARM64_BUILD_CMD = "${COMMON_BUILD_ARGS} --build_dir ${ARM64_BUILD_DIR}  ${ARM64_ARGS}"
-
-# arm64
-    # build
-    '-- running build (arm64) --';
-    "-- command: `"${ARM64_BUILD_CMD}`""
-    cmd /c "`"${VCVARS_ARM64}`" & ${ARM64_BUILD_CMD}"
-
-    # package
-    mkdir $ARM64_DIST_LIB_DIR
-    $ARM64_BUILD_LIB_DIR="${ARM64_BUILD_DIR}\${BUILD_CONFIG}\${BUILD_CONFIG}"
-    Copy-Item $ARM64_BUILD_LIB_DIR\onnxruntime.dll $ARM64_DIST_LIB_DIR
-    Copy-Item $ARM64_BUILD_LIB_DIR\onnxruntime.lib $ARM64_DIST_LIB_DIR
-    Copy-Item $ARM64_BUILD_LIB_DIR\DirectML.dll $ARM64_DIST_LIB_DIR
-    Copy-Item $ARM64_BUILD_LIB_DIR\DirectML.Debug.dll $ARM64_DIST_LIB_DIR
-    if ($BUILD_CONFIG -eq 'Debug') {
-        Copy-Item $ARM64_BUILD_LIB_DIR\onnxruntime.pdb $ARM64_DIST_LIB_DIR
-        Copy-Item $ARM64_BUILD_LIB_DIR\DirectML.pdb $ARM64_DIST_LIB_DIR
-        Copy-Item $ARM64_BUILD_LIB_DIR\DirectML.Debug.pdb $ARM64_DIST_LIB_DIR
-    }
-
-    # generate manifest for libraries with DLL hashes
-    Copy-Item bfx/bfx_ml.ort_deps.runtime.manifest.arm64.in $ARM64_DIST_LIB_DIR
-    Push-Location $ARM64_DIST_LIB_DIR
-    cmd /c "`"${VCVARS_ARM64}`" & mt.exe -manifest bfx_ml.ort_deps.runtime.manifest.arm64.in -hashupdate -out:bfx_ml.ort_deps.runtime.manifest"
-    Remove-Item bfx_ml.ort_deps.runtime.manifest.arm64.in
-    Pop-Location
+$ARM64_BASE_ARGS = '--cmake_generator "Visual Studio 17 2022" --arm64'
 
 # x86_64
     # build
@@ -151,12 +124,15 @@ $ARM64_BUILD_CMD = "${COMMON_BUILD_ARGS} --build_dir ${ARM64_BUILD_DIR}  ${ARM64
     Copy-Item $X86_64_BUILD_LIB_DIR\onnxruntime_providers_cuda.lib $X86_64_DIST_LIB_DIR
     Copy-Item $X86_64_BUILD_LIB_DIR\onnxruntime_providers_shared.dll $X86_64_DIST_LIB_DIR
     Copy-Item $X86_64_BUILD_LIB_DIR\onnxruntime_providers_shared.lib $X86_64_DIST_LIB_DIR
+    Copy-Item $X86_64_BUILD_LIB_DIR\onnxruntime_providers_webgpu.dll $X86_64_DIST_LIB_DIR
+    Copy-Item $X86_64_BUILD_LIB_DIR\onnxruntime_providers_webgpu.lib $X86_64_DIST_LIB_DIR
     Copy-Item $X86_64_BUILD_LIB_DIR\DirectML.dll $X86_64_DIST_LIB_DIR
     Copy-Item $X86_64_BUILD_LIB_DIR\DirectML.Debug.dll $X86_64_DIST_LIB_DIR
     if ($BUILD_CONFIG -eq 'Debug') {
         Copy-Item $X86_64_BUILD_LIB_DIR\onnxruntime.pdb $X86_64_DIST_LIB_DIR
         Copy-Item $X86_64_BUILD_LIB_DIR\onnxruntime_providers_cuda.pdb $X86_64_DIST_LIB_DIR
         Copy-Item $X86_64_BUILD_LIB_DIR\onnxruntime_providers_shared.pdb $X86_64_DIST_LIB_DIR
+        Copy-Item $X86_64_BUILD_LIB_DIR\onnxruntime_providers_webgpu.pdb $X86_64_DIST_LIB_DIR
         Copy-Item $X86_64_BUILD_LIB_DIR\DirectML.pdb $X86_64_DIST_LIB_DIR
         Copy-Item $X86_64_BUILD_LIB_DIR\DirectML.Debug.pdb $X86_64_DIST_LIB_DIR
     }
@@ -166,6 +142,55 @@ $ARM64_BUILD_CMD = "${COMMON_BUILD_ARGS} --build_dir ${ARM64_BUILD_DIR}  ${ARM64
     Push-Location $X86_64_DIST_LIB_DIR
     cmd /c "`"${VCVARS_X86_64}`" & mt.exe -manifest bfx_ml.ort_deps.runtime.manifest.x86_64.in -hashupdate -out:bfx_ml.ort_deps.runtime.manifest"
     Remove-Item bfx_ml.ort_deps.runtime.manifest.x86_64.in
+    Pop-Location
+
+# arm64
+    # Dawn/DXC (needed for --use_webgpu) builds its own copy of LLVM's tablegen tool. When cross-compiling
+    # for arm64 with the Visual Studio generator, CMake cannot generate a project to build that tool (it
+    # must run on the host, not the target), which causes MSBuild error MSB1009 for a missing
+    # LLVM-tablegen-host.vcxproj. Reuse the tablegen executables already built above during the native
+    # x86_64 build to work around this (same approach ORT's own CI uses, see
+    # tools/ci_build/github/azure-pipelines/stages/nodejs-win-packaging-stage.yml).
+    '-- locating host tablegen tools from x86_64 build (needed for arm64 dawn/dxc cross-compile) --';
+    $LLVM_TABLEGEN = (Get-ChildItem -Path $X86_64_BUILD_DIR -Recurse -Filter 'llvm-tblgen.exe' | Select-Object -First 1).FullName
+    $CLANG_TABLEGEN = (Get-ChildItem -Path $X86_64_BUILD_DIR -Recurse -Filter 'clang-tblgen.exe' | Select-Object -First 1).FullName
+    if (-not $LLVM_TABLEGEN) { throw "could not locate llvm-tblgen.exe under ${X86_64_BUILD_DIR}" }
+    if (-not $CLANG_TABLEGEN) { throw "could not locate clang-tblgen.exe under ${X86_64_BUILD_DIR}" }
+    "-- LLVM_TABLEGEN: ${LLVM_TABLEGEN}"
+    "-- CLANG_TABLEGEN: ${CLANG_TABLEGEN}"
+
+    $ARM64_ARGS = "${ARM64_BASE_ARGS} --cmake_extra_defines LLVM_TABLEGEN=${LLVM_TABLEGEN} CLANG_TABLEGEN=${CLANG_TABLEGEN} onnxruntime_BUILD_UNIT_TESTS=OFF"
+    $ARM64_BUILD_CMD = "${COMMON_BUILD_ARGS} --build_dir ${ARM64_BUILD_DIR}  ${ARM64_ARGS}"
+
+    # build
+    '-- running build (arm64) --';
+    "-- command: `"${ARM64_BUILD_CMD}`""
+    cmd /c "`"${VCVARS_ARM64}`" & ${ARM64_BUILD_CMD}"
+
+    # package
+    mkdir $ARM64_DIST_LIB_DIR
+    $ARM64_BUILD_LIB_DIR="${ARM64_BUILD_DIR}\${BUILD_CONFIG}\${BUILD_CONFIG}"
+    Copy-Item $ARM64_BUILD_LIB_DIR\onnxruntime.dll $ARM64_DIST_LIB_DIR
+    Copy-Item $ARM64_BUILD_LIB_DIR\onnxruntime.lib $ARM64_DIST_LIB_DIR
+    Copy-Item $ARM64_BUILD_LIB_DIR\onnxruntime_providers_shared.dll $ARM64_BUILD_LIB_DIR
+    Copy-Item $ARM64_BUILD_LIB_DIR\onnxruntime_providers_shared.lib $ARM64_BUILD_LIB_DIR
+    Copy-Item $ARM64_BUILD_LIB_DIR\onnxruntime_providers_webgpu.dll $ARM64_BUILD_LIB_DIR
+    Copy-Item $ARM64_BUILD_LIB_DIR\onnxruntime_providers_webgpu.lib $ARM64_BUILD_LIB_DIR
+    Copy-Item $ARM64_BUILD_LIB_DIR\DirectML.dll $ARM64_DIST_LIB_DIR
+    Copy-Item $ARM64_BUILD_LIB_DIR\DirectML.Debug.dll $ARM64_DIST_LIB_DIR
+    if ($BUILD_CONFIG -eq 'Debug') {
+        Copy-Item $ARM64_BUILD_LIB_DIR\onnxruntime.pdb $ARM64_DIST_LIB_DIR
+        Copy-Item $ARM64_BUILD_LIB_DIR\onnxruntime_providers_shared.pdb $ARM64_DIST_LIB_DIR
+        Copy-Item $ARM64_BUILD_LIB_DIR\onnxruntime_providers_webgpu.pdb $ARM64_DIST_LIB_DIR
+        Copy-Item $ARM64_BUILD_LIB_DIR\DirectML.pdb $ARM64_DIST_LIB_DIR
+        Copy-Item $ARM64_BUILD_LIB_DIR\DirectML.Debug.pdb $ARM64_DIST_LIB_DIR
+    }
+
+    # generate manifest for libraries with DLL hashes
+    Copy-Item bfx/bfx_ml.ort_deps.runtime.manifest.arm64.in $ARM64_DIST_LIB_DIR
+    Push-Location $ARM64_DIST_LIB_DIR
+    cmd /c "`"${VCVARS_ARM64}`" & mt.exe -manifest bfx_ml.ort_deps.runtime.manifest.arm64.in -hashupdate -out:bfx_ml.ort_deps.runtime.manifest"
+    Remove-Item bfx_ml.ort_deps.runtime.manifest.arm64.in
     Pop-Location
 
 # make final zip archive!
