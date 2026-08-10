@@ -31,6 +31,20 @@ Write-Output "VCVARS for arm64: ${VCVARS_ARM64}"
 
 Write-Output "starting onnxruntime build: ${DIST_NAME}"
 
+conda activate base; CheckForErrors;
+
+# cmake on path
+'-- cmake info --';
+cmake --version; CheckForErrors;
+
+# conda environment available
+'-- conda info --';
+conda --version; CheckForErrors;
+
+'-- python info --';
+python --version; CheckForErrors;
+where.exe python
+
 # clear any previous build..
 if (Test-Path build) { Remove-Item -r -Force build }
 mkdir build
@@ -70,20 +84,6 @@ Pop-Location
 
 $CMAKE_CUDA_FLAGS = "-static-global-template-stub=false" # this needed for compilation when switching to CU 12.8 from 12.4
 $CMAKE_CUDA_ARCHITECTURES = "60-real;61-real;70-real;75-real;80-real;86-real;89-real;90a-real;90-real;90-virtual;120-real;120-virtual"
-
-conda activate base; CheckForErrors;
-
-# cmake on path
-'-- cmake info --';
-cmake --version; CheckForErrors;
-
-# conda environment available
-'-- conda info --';
-conda --version; CheckForErrors;
-
-'-- python info --';
-python --version; CheckForErrors;
-where.exe python
 
 $COMMON_BUILD_ARGS = "python tools\ci_build\build.py --config ${BUILD_CONFIG} --build_shared_lib --parallel 4 --use_dml --skip_tests --use_webgpu shared_lib"
 $COMMON_BUILD_DIR = "$(Get-Location)\build"
