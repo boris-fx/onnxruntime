@@ -172,10 +172,10 @@ $ARM64_BASE_ARGS = '--cmake_generator "Visual Studio 17 2022" --arm64'
     $ARM64_BUILD_LIB_DIR="${ARM64_BUILD_DIR}\${BUILD_CONFIG}\${BUILD_CONFIG}"
     Copy-Item $ARM64_BUILD_LIB_DIR\onnxruntime.dll $ARM64_DIST_LIB_DIR
     Copy-Item $ARM64_BUILD_LIB_DIR\onnxruntime.lib $ARM64_DIST_LIB_DIR
-    Copy-Item $ARM64_BUILD_LIB_DIR\onnxruntime_providers_shared.dll $ARM64_BUILD_LIB_DIR
-    Copy-Item $ARM64_BUILD_LIB_DIR\onnxruntime_providers_shared.lib $ARM64_BUILD_LIB_DIR
-    Copy-Item $ARM64_BUILD_LIB_DIR\onnxruntime_providers_webgpu.dll $ARM64_BUILD_LIB_DIR
-    Copy-Item $ARM64_BUILD_LIB_DIR\onnxruntime_providers_webgpu.lib $ARM64_BUILD_LIB_DIR
+    Copy-Item $ARM64_BUILD_LIB_DIR\onnxruntime_providers_shared.dll $ARM64_DIST_LIB_DIR
+    Copy-Item $ARM64_BUILD_LIB_DIR\onnxruntime_providers_shared.lib $ARM64_DIST_LIB_DIR
+    Copy-Item $ARM64_BUILD_LIB_DIR\onnxruntime_providers_webgpu.dll $ARM64_DIST_LIB_DIR
+    Copy-Item $ARM64_BUILD_LIB_DIR\onnxruntime_providers_webgpu.lib $ARM64_DIST_LIB_DIR
     Copy-Item $ARM64_BUILD_LIB_DIR\DirectML.dll $ARM64_DIST_LIB_DIR
     Copy-Item $ARM64_BUILD_LIB_DIR\DirectML.Debug.dll $ARM64_DIST_LIB_DIR
     if ($BUILD_CONFIG -eq 'Debug') {
