@@ -23,6 +23,8 @@
 #include "bfx/make_multiscale_upres_sample_grid.h"
 #include "bfx/rle_encode.h"
 #include "bfx/rle_decode.h"
+#include "bfx/roto_union_forward.h"
+#include "bfx/roto_occ_grad.h"
 
 using namespace Microsoft::WRL;
 
@@ -1366,6 +1368,9 @@ void RegisterDmlOperators(IMLOperatorRegistry* registry)
 
     bfx_ops::register_operator_kernel2<bfx_ops::rle_encode>(registry);
     bfx_ops::register_operator_kernel2<bfx_ops::rle_decode>(registry);
+
+    bfx_ops::register_operator_kernel2<bfx_ops::roto_union_forward>(registry);
+    bfx_ops::register_operator_kernel2<bfx_ops::roto_occ_grad>(registry);
 }
 
 } // namespace Dml

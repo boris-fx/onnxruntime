@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 #include "precomp.h"
+#include <sstream>
 
 #include "IExecutionProvider.h"
 #include "ExecutionProvider.h"
@@ -405,6 +406,27 @@ namespace Dml
     //   as final, which disallows its future extensions.  This ensures that no indirect
     //   downstream dependencies of the external output node are later merged.
     //
+    // BFX: opt-in partition census, off unless BFX_DML_PARTITION_CENSUS is set in the
+    // environment. Whether a node clears GetRegistrationProperties' static-shape gate decides
+    // whether it is FUSED into one DML graph dispatch or dispatched alone, and that single fact
+    // dominates the runtime of a dynamically-shaped graph - a fully dynamic model can end up with
+    // one partition PER NODE. Nothing else reports it: ORT's own "Node placements" log says which
+    // EP took a node, not whether the DML EP could fuse it. Read with free_dim_overrides on and
+    // off to see what pinning an axis actually bought.
+    static bool bfxCensusEnabled()
+    {
+        static const bool enabled = []
+        {
+            size_t len = 0;
+            char* v = nullptr;
+            const bool present = _dupenv_s(&v, &len, "BFX_DML_PARTITION_CENSUS") == 0 && v != nullptr;
+            const bool on = present && len > 1 && v[0] != '0';
+            free(v);
+            return on;
+        }();
+        return enabled;
+    }
+
     std::vector<std::unique_ptr<GraphPartition>>
     BuildPartitions(
         const onnxruntime::GraphViewer& graph,
@@ -455,6 +477,13 @@ namespace Dml
 
         uint32_t splittingNodeIndex = 0;
 
+        // BFX: partition census, opt-in. Whether a node clears GetRegistrationProperties' static-shape gate
+        // decides whether it can be FUSED into one DML graph dispatch or has to be dispatched on its
+        // own, which is the difference free_dim_overrides / a static export actually makes. Counting
+        // it is the only way to see that from outside - there is no other log that reports it.
+        size_t bfxTotalNodes = 0, bfxDmlNodes = 0, bfxDmlGraphNodes = 0;
+        std::vector<std::string> bfxRejected;
+
         // Build up partitions while traversing the graph.
         for (size_t nodeIndex : toplogicalOrder)
         {
@@ -466,6 +495,7 @@ namespace Dml
             // Whether the node is implemented through DML and as a graph node, meaning it
             // can generate DML operations through a private interface for use as an MLGraph node.
             bool isDmlGraphNode = false;
+            ++bfxTotalNodes;
 
             // Get the registration properties above and populate nodeNameToPartitionMap.
             if (isDmlNode)
@@ -484,6 +514,10 @@ namespace Dml
                     /*out*/ &isDmlGraphNode
                 );
             }
+
+            if (isDmlNode) { ++bfxDmlNodes; }
+            if (isDmlGraphNode) { ++bfxDmlGraphNodes; }
+            else if (bfxRejected.size() < 12) { bfxRejected.push_back(node.OpType()); }
 
             // Add a unique partition if graph node usage is not supported.
             //
@@ -555,6 +589,28 @@ namespace Dml
                     firstNonFinalInputPartition->Merge(gsl::span<GraphPartition*>(&inputNonFinalPartitions[1], inputNonFinalPartitions.size() - 1));
                 }
             }
+        }
+
+        size_t bfxFusable = 0, bfxFusedNodes = 0;
+        for (const auto& part : partitions)
+        {
+            if (part->IsDmlGraphPartition())
+            {
+                ++bfxFusable;
+                bfxFusedNodes += part->GetNodeIndices().size();
+            }
+        }
+        if (bfxCensusEnabled())
+        {
+            std::ostringstream msg;
+            msg << "[bfx] partition census: " << bfxTotalNodes << " nodes, " << bfxDmlNodes
+                << " on DML, " << bfxDmlGraphNodes << " fusable -> " << partitions.size()
+                << " partitions (" << bfxFusable << " fused, holding " << bfxFusedNodes
+                << " nodes). rejected op types:";
+            for (const auto& t : bfxRejected) { msg << " " << t; }
+            msg << std::endl;
+            printf("%s", msg.str().c_str());
+            fflush(stdout);
         }
 
         return partitions;

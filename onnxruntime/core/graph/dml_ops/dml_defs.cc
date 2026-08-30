@@ -427,6 +427,54 @@ void RegisterDmlSchemas() {
       .Input(1, "enc_d", "", "tensor(int32)")
       .Input(2, "enc_i", "", "tensor(int32)")
       .Output(0, "x", "", "tensor(int32)");
+
+  // The roto refine ops. These MUST match python/roto/refine_graph.py::onnx_translation_table
+  // exactly - same input order, same names, same types, same required attribute - since that is
+  // what the exported nodes were type-checked against.
+  //
+  // No plugin_namespace / plugin_version, unlike the older bfx schemas above: those exist for the
+  // TensorRT path, and torch.onnx.export emits neither on these nodes.
+
+  MS_DML_OPERATOR_SCHEMA(roto_UnionForward)
+      .SetDomain("bfx")
+      .SinceVersion(1)
+      .Input(0, "log1m_in", "", "T")
+      .Input(1, "curve", "", "T")
+      .Input(2, "pts_all", "", "T")
+      .Input(3, "pos_idx", "", "I")
+      .Input(4, "sharpness", "", "T")
+      .Output(0, "log1m_out", "", "T")
+      .TypeConstraint("T", {"tensor(float)"},
+                      "accumulator (Q,P), curve (F,S,2), points (Q,P,2), rank-0 sharpness")
+      .TypeConstraint("I", {"tensor(int64)"}, "this object's row into the range, (F)");
+
+  MS_DML_OPERATOR_SCHEMA(roto_OccGrad)
+      .SetDomain("bfx")
+      .SinceVersion(1)
+      .Input(0,  "curve", "", "T")
+      .Input(1,  "pts_all", "", "T")
+      .Input(2,  "own", "", "U")
+      .Input(3,  "present", "", "U")
+      .Input(4,  "tgt_all", "", "U")
+      .Input(5,  "wgt_all", "", "H")
+      .Input(6,  "log1m_all", "", "T")
+      .Input(7,  "dldu_all", "", "T")
+      .Input(8,  "pos_idx", "", "I")
+      .Input(9,  "sharpness", "", "T")
+      .Input(10, "neighbor_weight", "", "T")
+      .Input(11, "own_weight", "", "T")
+      .Input(12, "own_total", "", "T")
+      .Output(0, "d_curve", "", "T")
+      .Output(1, "own_loss", "", "T")
+      .TypeConstraint("T", {"tensor(float)"},
+                      "curve (F,S,2), the (Q,P) stacks, and the rank-0 weights")
+      .TypeConstraint("I", {"tensor(int64)"}, "pos_idx, (F)")
+      .TypeConstraint("U", {"tensor(uint8)"}, "own (F,P), present (F), tgt_all (Q,P)")
+      .TypeConstraint("H", {"tensor(float16)"}, "wgt_all (Q,P) - only ever tested against zero")
+      // required, and ONNX's 3-argument Attr() defaults to required - which is what we want: a
+      // call that names neither mode would otherwise silently fit the wrong thing.
+      .Attr("ext", "1 to fit the union against the external matte, 0 to fit each object against "
+                   "its own mask. Never both.", onnx::AttributeProto::INT);
 }
 }  // namespace dml
 }  // namespace onnxruntime
