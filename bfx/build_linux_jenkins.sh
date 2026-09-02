@@ -16,10 +16,10 @@ else
     exit 1
 fi
 
-ORT_VERSION=1.27.1
+ORT_VERSION=1.29.0
 BUILD_ID=$(date '+%Y-%m-%d')_$(git rev-parse --short HEAD)_${BUILD_NUMBER}
 DIST_NAME=libonnxruntime-${ORT_VERSION}_linux_${DIST_NAME_COMPATIBILITY_STR}_cu${CUDA_VERSION}_${BUILD_ID}
 
-./bfx/build_linux.sh $DIST_NAME $CUDA_VERSION
+./bfx/build_linux.sh $DIST_NAME --backend cuda --cuda-version $CUDA_VERSION
 
 rclone copy build/${DIST_NAME}.zip "mescola:Boris FX/Engineering/BinaryArtifacts"

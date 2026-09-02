@@ -6,7 +6,7 @@
 #
 # examples:
 #   # everything (what CI does): both arches, all backends, Release
-#   bfx/build_win.ps1 libonnxruntime-1.27.1_win_cu128-dml-1.15.4_<build-id>
+#   bfx/build_win.ps1 libonnxruntime-1.29.0_win_cu128-dml-1.15.4_<build-id>
 #
 #   # quick local iteration: x86_64 / dml / Debug, all cores, reusing the previous build tree
 #   bfx/build_win.ps1 scratch Debug -Arch x86_64 -Backend dml -Parallel 0 -NoClean
@@ -241,6 +241,14 @@ if ($BUILD_X86_64) {
         Copy-Item "${X86_64_BUILD_LIB_DIR}\${LIB}.lib" $X86_64_DIST_LIB_DIR
         Copy-Pdb "${X86_64_BUILD_LIB_DIR}\${LIB}.pdb" $X86_64_DIST_LIB_DIR
     }
+    if ($USE_WEBGPU) {
+        # Dawn's D3D12 backend compiles shaders through DXC at runtime, so dxil.dll and dxcompiler.dll
+        # must ship alongside onnxruntime_providers_webgpu.dll. cmake stages them into the build output
+        # dir (onnxruntime_providers_webgpu_dll_deps in cmake/onnxruntime_providers_webgpu.cmake); ORT's
+        # own packaging copies them the same way.
+        Copy-Item "${X86_64_BUILD_LIB_DIR}\dxil.dll" $X86_64_DIST_LIB_DIR
+        Copy-Item "${X86_64_BUILD_LIB_DIR}\dxcompiler.dll" $X86_64_DIST_LIB_DIR
+    }
     if ($USE_DML) {
         Copy-Item $X86_64_BUILD_LIB_DIR\DirectML.dll $X86_64_DIST_LIB_DIR
         Copy-Item $X86_64_BUILD_LIB_DIR\DirectML.Debug.dll $X86_64_DIST_LIB_DIR
@@ -300,6 +308,11 @@ if ($BUILD_ARM64) {
         Copy-Item "${ARM64_BUILD_LIB_DIR}\${LIB}.dll" $ARM64_DIST_LIB_DIR
         Copy-Item "${ARM64_BUILD_LIB_DIR}\${LIB}.lib" $ARM64_DIST_LIB_DIR
         Copy-Pdb "${ARM64_BUILD_LIB_DIR}\${LIB}.pdb" $ARM64_DIST_LIB_DIR
+    }
+    if ($USE_WEBGPU) {
+        # see the x86_64 block above - Dawn's D3D12 backend needs DXC at runtime
+        Copy-Item "${ARM64_BUILD_LIB_DIR}\dxil.dll" $ARM64_DIST_LIB_DIR
+        Copy-Item "${ARM64_BUILD_LIB_DIR}\dxcompiler.dll" $ARM64_DIST_LIB_DIR
     }
     if ($USE_DML) {
         Copy-Item $ARM64_BUILD_LIB_DIR\DirectML.dll $ARM64_DIST_LIB_DIR

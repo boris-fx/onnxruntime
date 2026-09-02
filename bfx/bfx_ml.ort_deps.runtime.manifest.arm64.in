@@ -3,11 +3,13 @@
     <assemblyIdentity
         type="win32"
         name="bfx_ml.ort_deps.runtime"
-        version="1.0.0.11" processorArchitecture="arm64">
+        version="1.0.0.12" processorArchitecture="arm64">
     </assemblyIdentity>
     <file name="DirectML.dll" hash="" hashalg="SHA1"></file>
     <file name="DirectML.Debug.dll" hash="" hashalg="SHA1"></file>
     <file name="onnxruntime.dll" hash="" hashalg="SHA1"></file>
     <file name="onnxruntime_providers_shared.dll" hash="" hashalg="SHA1"></file>
     <file name="onnxruntime_providers_webgpu.dll" hash="" hashalg="SHA1"></file>
+    <file name="dxcompiler.dll" hash="" hashalg="SHA1"></file>
+    <file name="dxil.dll" hash="" hashalg="SHA1"></file>
 </assembly>
