@@ -15,9 +15,11 @@
 # notes:
 #   - this mirrors bfx/build_win.ps1's options. there is no 'dml' backend on linux (DirectML is a
 #     windows-only API), so --backend's choices here are 'cuda' and 'webgpu'.
-#   - webgpu on linux runs Dawn's *Vulkan* backend (windows uses D3D12). Dawn is linked statically
-#     into libonnxruntime_providers_webgpu.so, but the host still needs a vulkan loader
-#     (libvulkan.so.1) plus an ICD/driver at *runtime*.
+#   - webgpu on linux runs Dawn's *Vulkan* backend (windows uses D3D12), so the host needs a vulkan
+#     loader (libvulkan.so.1) plus an ICD/driver at *runtime*.
+#   - a webgpu build links the EP into libonnxruntime.so and ships Dawn separately as
+#     libwebgpu_dawn.so, along with Dawn's headers. that is what lets a client create its own
+#     WGPUDevice and WGPUBuffers and hand them to ORT as tensors - both sides call the same Dawn.
 #   - our bfx custom ops are DML-only, so they are NOT present in a webgpu build.
 #   - --parallel defaults to 1 so the default (CI) invocation builds exactly like it always has.
 #     '--parallel 0' means one job per core - safe and much faster for any build without CUDA in it.
@@ -25,7 +27,7 @@
 set -e
 
 usage() {
-    sed -n '2,24p' "$0" | sed 's/^# \?//'
+    sed -n '2,26p' "$0" | sed 's/^# \?//'
     exit 1
 }
 
@@ -158,7 +160,14 @@ BUILD_ARGS=(--config "$BUILD_CONFIG" --build_shared_lib --skip_tests --parallel 
 CMAKE_EXTRA_DEFINES=(onnxruntime_BUILD_UNIT_TESTS=OFF)
 
 if [[ $USE_WEBGPU -eq 1 ]]; then
-    BUILD_ARGS+=(--use_webgpu shared_lib)
+    # static_lib links the WebGPU EP into libonnxruntime.so (so there is no
+    # libonnxruntime_providers_webgpu.so to ship), and BUILD_DAWN_SHARED_LIBRARY makes Dawn its own
+    # libwebgpu_dawn.so. that pairing is what lets a client create its own WGPUDevice/WGPUBuffer and hand
+    # them to ORT: both sides call into the same Dawn. the plugin form ('--use_webgpu shared_lib') hides
+    # every Dawn symbol (see ep/version_script.lds) and cmake rejects pairing it with a Dawn shared
+    # library outright - cmake/CMakeLists.txt:1036-1042.
+    BUILD_ARGS+=(--use_webgpu static_lib)
+    CMAKE_EXTRA_DEFINES+=(onnxruntime_BUILD_DAWN_SHARED_LIBRARY=ON)
 fi
 
 if [[ $USE_CUDA -eq 1 ]]; then
@@ -198,12 +207,27 @@ rm -rf ${DIST_DIR} ${DIST_DIR}.zip
 mkdir -p ${DIST_DIR}/lib
 
 LIBS=(libonnxruntime.so libonnxruntime_providers_shared.so)
-if [[ $USE_CUDA -eq 1 ]];   then LIBS+=(libonnxruntime_providers_cuda.so); fi
-if [[ $USE_WEBGPU -eq 1 ]]; then LIBS+=(libonnxruntime_providers_webgpu.so); fi
+if [[ $USE_CUDA -eq 1 ]]; then LIBS+=(libonnxruntime_providers_cuda.so); fi
+# NOTE: no libonnxruntime_providers_webgpu.so - with --use_webgpu static_lib the EP is linked into
+# libonnxruntime.so. libwebgpu_dawn.so is what ships instead, and the client links it directly.
+if [[ $USE_WEBGPU -eq 1 ]]; then LIBS+=(libwebgpu_dawn.so); fi
 for LIB in "${LIBS[@]}"; do
     cp ${BUILD_LIB_DIR}/${LIB} ${DIST_DIR}/lib
 done
 cp -r include ${DIST_DIR}/.
+
+if [[ $USE_WEBGPU -eq 1 ]]; then
+    # ORT installs no WebGPU headers at all - the only thing under include/onnxruntime/core/providers/
+    # webgpu is a dummy "was WebGPU in this build" signal header. a client that creates its own
+    # WGPUDevice and WGPUBuffers needs Dawn's, which sit in Dawn's build tree in two include roots: the
+    # checked-in one (webgpu/) and the generated one (dawn/, where dawn_proc_table.h is produced).
+    cp -r ${BUILD_LIB_DIR}/_deps/dawn-src/include/*       ${DIST_DIR}/include/
+    cp -r ${BUILD_LIB_DIR}/_deps/dawn-build/gen/include/* ${DIST_DIR}/include/
+    # the provider option keys (webgpuDevice, webgpuInstance, dawnProcTable, deviceId, preserveDevice,
+    # ...) are internal ORT source rather than public headers, so vendor that one in alongside them.
+    mkdir -p ${DIST_DIR}/include/onnxruntime/core/providers/webgpu
+    cp onnxruntime/core/providers/webgpu/webgpu_provider_options.h ${DIST_DIR}/include/onnxruntime/core/providers/webgpu/
+fi
 
 cd build
 zip -r $(basename ${DIST_NAME}).zip $(basename ${DIST_NAME})

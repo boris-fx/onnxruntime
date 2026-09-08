@@ -169,7 +169,12 @@ $CMAKE_CUDA_ARCHITECTURES = "60-real;61-real;70-real;75-real;80-real;86-real;89-
 # args shared by both architectures; --parallel and --build_dir are appended per-arch
 $COMMON_BUILD_ARGS_LIST = @('python', 'tools\ci_build\build.py', '--config', $BUILD_CONFIG, '--build_shared_lib', '--skip_tests')
 if ($USE_DML)    { $COMMON_BUILD_ARGS_LIST += '--use_dml' }
-if ($USE_WEBGPU) { $COMMON_BUILD_ARGS_LIST += @('--use_webgpu', 'shared_lib') }
+# static_lib links the WebGPU EP into onnxruntime.dll (so there is no onnxruntime_providers_webgpu.dll
+# to ship), and BUILD_DAWN_SHARED_LIBRARY makes Dawn its own webgpu_dawn.dll. that pairing is what lets a
+# client create its own WGPUDevice/WGPUBuffer and hand them to ORT: both sides call the same Dawn.
+# the plugin form ('--use_webgpu shared_lib') hides every Dawn symbol behind CreateEpFactories, and cmake
+# rejects combining it with a Dawn DLL outright - see cmake/CMakeLists.txt:1036-1042.
+if ($USE_WEBGPU) { $COMMON_BUILD_ARGS_LIST += @('--use_webgpu', 'static_lib') }
 $COMMON_BUILD_ARGS = $COMMON_BUILD_ARGS_LIST -join ' '
 $COMMON_BUILD_DIR = "$(Get-Location)\build"
 
@@ -185,6 +190,23 @@ Copy-Item -r .\include $DIST_DIR
 function Copy-Pdb {
     param([string]$Path, [string]$Dest)
     if (Test-Path $Path) { Copy-Item $Path $Dest }
+}
+
+# ORT installs no WebGPU headers at all - the only thing under include/onnxruntime/core/providers/webgpu
+# is a dummy "was WebGPU in this build" signal header. A client that creates its own WGPUDevice and
+# WGPUBuffers needs Dawn's headers, which live in Dawn's build tree in two include roots: the checked-in
+# one (webgpu/) and the generated one (dawn/, which is where dawn_proc_table.h is produced).
+# $CmakeBinDir is the cmake binary dir for the arch, i.e. the directory containing _deps.
+function Copy-DawnHeaders {
+    param([string]$CmakeBinDir, [string]$DestInclude)
+    Copy-Item -Recurse -Force "${CmakeBinDir}\_deps\dawn-src\include\*" $DestInclude
+    Copy-Item -Recurse -Force "${CmakeBinDir}\_deps\dawn-build\gen\include\*" $DestInclude
+    # the WebGPU provider option keys (webgpuDevice, webgpuInstance, dawnProcTable, deviceId,
+    # preserveDevice, ...) are in internal ORT source rather than its public include tree, so vendor
+    # that one header in alongside them.
+    $OPTS_DST = Join-Path $DestInclude 'onnxruntime\core\providers\webgpu'
+    if (-not (Test-Path $OPTS_DST)) { mkdir $OPTS_DST | Out-Null }
+    Copy-Item 'onnxruntime\core\providers\webgpu\webgpu_provider_options.h' $OPTS_DST
 }
 
 # the checked-in manifest templates list every DLL we can ever ship for an arch. a partial build
@@ -214,6 +236,7 @@ $ARM64_DIST_LIB_DIR="${DIST_LIB_DIR}\${ARM64_NAME}"
 # x86_64
 if ($BUILD_X86_64) {
     $X86_64_CMAKE_EXTRA_DEFINES_LIST = @('onnxruntime_BUILD_UNIT_TESTS=OFF')
+    if ($USE_WEBGPU) { $X86_64_CMAKE_EXTRA_DEFINES_LIST += 'onnxruntime_BUILD_DAWN_SHARED_LIBRARY=ON' }
     $X86_64_ARGS_LIST = @('--cmake_generator', 'Ninja')
     if ($X86_64_USE_CUDA) {
         $X86_64_CMAKE_EXTRA_DEFINES_LIST += @("CMAKE_CUDA_FLAGS=${CMAKE_CUDA_FLAGS}", "CMAKE_CUDA_ARCHITECTURES=${CMAKE_CUDA_ARCHITECTURES}", 'onnxruntime_USE_FLASH_ATTENTION:BOOL=ON')
@@ -235,7 +258,8 @@ if ($BUILD_X86_64) {
 
     $X86_64_LIBS = @('onnxruntime', 'onnxruntime_providers_shared')
     if ($X86_64_USE_CUDA) { $X86_64_LIBS += 'onnxruntime_providers_cuda' }
-    if ($USE_WEBGPU)      { $X86_64_LIBS += 'onnxruntime_providers_webgpu' }
+    # NOTE: no onnxruntime_providers_webgpu here - with --use_webgpu static_lib the EP is linked into
+    # onnxruntime.dll and only exists as a .lib. webgpu_dawn.dll is what ships instead; TODO below.
     foreach ($LIB in $X86_64_LIBS) {
         Copy-Item "${X86_64_BUILD_LIB_DIR}\${LIB}.dll" $X86_64_DIST_LIB_DIR
         Copy-Item "${X86_64_BUILD_LIB_DIR}\${LIB}.lib" $X86_64_DIST_LIB_DIR
@@ -248,6 +272,15 @@ if ($BUILD_X86_64) {
         # own packaging copies them the same way.
         Copy-Item "${X86_64_BUILD_LIB_DIR}\dxil.dll" $X86_64_DIST_LIB_DIR
         Copy-Item "${X86_64_BUILD_LIB_DIR}\dxcompiler.dll" $X86_64_DIST_LIB_DIR
+
+        # cmake stages webgpu_dawn.dll next to onnxruntime.dll, but its import lib stays in Dawn's own
+        # build tree. the client links this directly - it is how they call wgpuDeviceCreateBuffer etc.
+        Copy-Item "${X86_64_BUILD_LIB_DIR}\webgpu_dawn.dll" $X86_64_DIST_LIB_DIR
+        Copy-Item "${X86_64_BUILD_LIB_DIR}\_deps\dawn-build\src\dawn\native\webgpu_dawn.lib" $X86_64_DIST_LIB_DIR
+        Copy-Pdb  "${X86_64_BUILD_LIB_DIR}\webgpu_dawn.pdb" $X86_64_DIST_LIB_DIR
+
+        # ninja puts the cmake binary dir (the one holding _deps) at the same place as the build outputs
+        Copy-DawnHeaders -CmakeBinDir $X86_64_BUILD_LIB_DIR -DestInclude "${DIST_DIR}\include"
     }
     if ($USE_DML) {
         Copy-Item $X86_64_BUILD_LIB_DIR\DirectML.dll $X86_64_DIST_LIB_DIR
@@ -267,6 +300,7 @@ if ($BUILD_ARM64) {
     # the x86_64 build fails when running MSVC generator, due to 'visual studio integration' not being present on the CUDA SDK artifact (cuda_sdk/extras/visual_studio_integration/MSBuildExtensions)
     $ARM64_ARGS_LIST = @('--cmake_generator', '"Visual Studio 17 2022"', '--arm64')
     $ARM64_CMAKE_EXTRA_DEFINES_LIST = @('onnxruntime_BUILD_UNIT_TESTS=OFF')
+    if ($USE_WEBGPU) { $ARM64_CMAKE_EXTRA_DEFINES_LIST += 'onnxruntime_BUILD_DAWN_SHARED_LIBRARY=ON' }
 
     if ($USE_WEBGPU) {
         # Dawn/DXC (needed for --use_webgpu) builds its own copy of LLVM's tablegen tool. When cross-compiling
@@ -303,7 +337,7 @@ if ($BUILD_ARM64) {
     $ARM64_BUILD_LIB_DIR="${ARM64_BUILD_DIR}\${BUILD_CONFIG}\${BUILD_CONFIG}"
 
     $ARM64_LIBS = @('onnxruntime', 'onnxruntime_providers_shared')
-    if ($USE_WEBGPU) { $ARM64_LIBS += 'onnxruntime_providers_webgpu' }
+    # see the x86_64 note: static-EP build has no onnxruntime_providers_webgpu.dll
     foreach ($LIB in $ARM64_LIBS) {
         Copy-Item "${ARM64_BUILD_LIB_DIR}\${LIB}.dll" $ARM64_DIST_LIB_DIR
         Copy-Item "${ARM64_BUILD_LIB_DIR}\${LIB}.lib" $ARM64_DIST_LIB_DIR
@@ -313,6 +347,17 @@ if ($BUILD_ARM64) {
         # see the x86_64 block above - Dawn's D3D12 backend needs DXC at runtime
         Copy-Item "${ARM64_BUILD_LIB_DIR}\dxil.dll" $ARM64_DIST_LIB_DIR
         Copy-Item "${ARM64_BUILD_LIB_DIR}\dxcompiler.dll" $ARM64_DIST_LIB_DIR
+
+        Copy-Item "${ARM64_BUILD_LIB_DIR}\webgpu_dawn.dll" $ARM64_DIST_LIB_DIR
+        Copy-Pdb  "${ARM64_BUILD_LIB_DIR}\webgpu_dawn.pdb" $ARM64_DIST_LIB_DIR
+
+        # arm64 builds with the Visual Studio generator, not Ninja, so its layout differs from x86_64:
+        # the cmake binary dir (holding _deps) is one level above the build outputs, and MSBuild adds a
+        # per-config subdirectory of its own under the dawn targets.
+        # TODO: confirm both of these against a real arm64 build - x86_64 is the only one verified so far.
+        $ARM64_CMAKE_BIN_DIR = "${ARM64_BUILD_DIR}\${BUILD_CONFIG}"
+        Copy-Item "${ARM64_CMAKE_BIN_DIR}\_deps\dawn-build\src\dawn\native\${BUILD_CONFIG}\webgpu_dawn.lib" $ARM64_DIST_LIB_DIR
+        Copy-DawnHeaders -CmakeBinDir $ARM64_CMAKE_BIN_DIR -DestInclude "${DIST_DIR}\include"
     }
     if ($USE_DML) {
         Copy-Item $ARM64_BUILD_LIB_DIR\DirectML.dll $ARM64_DIST_LIB_DIR

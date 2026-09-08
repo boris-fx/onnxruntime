@@ -9,7 +9,7 @@
     <file name="DirectML.Debug.dll" hash="" hashalg="SHA1"></file>
     <file name="onnxruntime.dll" hash="" hashalg="SHA1"></file>
     <file name="onnxruntime_providers_shared.dll" hash="" hashalg="SHA1"></file>
-    <file name="onnxruntime_providers_webgpu.dll" hash="" hashalg="SHA1"></file>
+    <file name="webgpu_dawn.dll" hash="" hashalg="SHA1"></file>
     <file name="dxcompiler.dll" hash="" hashalg="SHA1"></file>
     <file name="dxil.dll" hash="" hashalg="SHA1"></file>
 </assembly>
