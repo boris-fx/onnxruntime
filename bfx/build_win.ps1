@@ -99,10 +99,6 @@ Write-Output "  clean:    $(-not $NoClean)"
 
 conda activate base; CheckForErrors;
 
-# cmake on path
-'-- cmake info --';
-cmake --version; CheckForErrors;
-
 # conda environment available
 '-- conda info --';
 conda --version; CheckForErrors;
