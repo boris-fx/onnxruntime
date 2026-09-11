@@ -189,15 +189,16 @@ if [[ $USE_CUDA -eq 1 ]]; then
     if [[ "$CUDA_VERSION" == "124" ]]; then
         echo TODO: add full cuDNN 8 versions to libonnxruntime_providers_cuda.so
     else
-        # convert libonnxruntime_providers_cuda.so to use full cudnn library names to avoid conflicts with hosts that have their own cuDNN!
-        patchelf --replace-needed libcudnn.so.9                             libcudnn.so.9.10.2                                  ${BUILD_LIB_DIR}/libonnxruntime_providers_cuda.so
-        patchelf --replace-needed libcudnn_adv.so.9                         libcudnn_adv.so.9.10.2                              ${BUILD_LIB_DIR}/libonnxruntime_providers_cuda.so
-        patchelf --replace-needed libcudnn_ops.so.9                         libcudnn_ops.so.9.10.2                              ${BUILD_LIB_DIR}/libonnxruntime_providers_cuda.so
-        patchelf --replace-needed libcudnn_cnn.so.9                         libcudnn_cnn.so.9.10.2                              ${BUILD_LIB_DIR}/libonnxruntime_providers_cuda.so
-        patchelf --replace-needed libcudnn_graph.so.9                       libcudnn_graph.so.9.10.2                            ${BUILD_LIB_DIR}/libonnxruntime_providers_cuda.so
-        patchelf --replace-needed libcudnn_engines_runtime_compiled.so.9    libcudnn_engines_runtime_compiled.so.9.10.2         ${BUILD_LIB_DIR}/libonnxruntime_providers_cuda.so
-        patchelf --replace-needed libcudnn_engines_precompiled.so.9         libcudnn_engines_precompiled.so.9.10.2              ${BUILD_LIB_DIR}/libonnxruntime_providers_cuda.so
-        patchelf --replace-needed libcudnn_heuristic.so.9                   libcudnn_heuristic.so.9.10.2                        ${BUILD_LIB_DIR}/libonnxruntime_providers_cuda.so
+        # v1.29.0 dlopens cuDNN as "libcudnn.so.9" instead of linking it, so add our fully versioned libs as
+        # DT_NEEDED: they load up front, and the dlopen matches them by SONAME rather than finding a host cuDNN.
+        patchelf --add-needed libcudnn.so.9.10.2                           ${BUILD_LIB_DIR}/libonnxruntime_providers_cuda.so
+        patchelf --add-needed libcudnn_adv.so.9.10.2                       ${BUILD_LIB_DIR}/libonnxruntime_providers_cuda.so
+        patchelf --add-needed libcudnn_ops.so.9.10.2                       ${BUILD_LIB_DIR}/libonnxruntime_providers_cuda.so
+        patchelf --add-needed libcudnn_cnn.so.9.10.2                       ${BUILD_LIB_DIR}/libonnxruntime_providers_cuda.so
+        patchelf --add-needed libcudnn_graph.so.9.10.2                     ${BUILD_LIB_DIR}/libonnxruntime_providers_cuda.so
+        patchelf --add-needed libcudnn_engines_runtime_compiled.so.9.10.2  ${BUILD_LIB_DIR}/libonnxruntime_providers_cuda.so
+        patchelf --add-needed libcudnn_engines_precompiled.so.9.10.2       ${BUILD_LIB_DIR}/libonnxruntime_providers_cuda.so
+        patchelf --add-needed libcudnn_heuristic.so.9.10.2                 ${BUILD_LIB_DIR}/libonnxruntime_providers_cuda.so
     fi
 fi
 
