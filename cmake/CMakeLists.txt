@@ -1034,10 +1034,14 @@ if (onnxruntime_USE_WEBGPU)
   endif()
 
   if (onnxruntime_BUILD_DAWN_SHARED_LIBRARY)
-    if (NOT onnxruntime_USE_EP_API_ADAPTERS)
-      list(APPEND ORT_PROVIDER_FLAGS -DBUILD_DAWN_SHARED_LIBRARY=1)
-    else()
+    if (onnxruntime_USE_EP_API_ADAPTERS)
       message(FATAL_ERROR "onnxruntime_USE_EP_API_ADAPTERS=ON is not supported with onnxruntime_BUILD_DAWN_SHARED_LIBRARY=ON")
+    elseif (NOT onnxruntime_USE_EXTERNAL_DAWN)
+      # bfx: when external Dawn is also on we still build webgpu_dawn, but ORT must NOT take the
+      # "linked directly against webgpu_dawn" path - that one rejects a caller-supplied DawnProcTable
+      # (webgpu_context.cc), which is exactly how we drive it. leaving this define off selects the
+      # external-Dawn path instead: dispatch through the proc table, no link-time Dawn dependency.
+      list(APPEND ORT_PROVIDER_FLAGS -DBUILD_DAWN_SHARED_LIBRARY=1)
     endif()
   endif()
 

@@ -166,7 +166,10 @@ if [[ $USE_WEBGPU -eq 1 ]]; then
     # them to ORT: both sides call into the same Dawn. the plugin form ('--use_webgpu shared_lib') hides
     # every Dawn symbol (see ep/version_script.lds) and cmake rejects pairing it with a Dawn shared
     # library outright - cmake/CMakeLists.txt:1036-1042.
-    BUILD_ARGS+=(--use_webgpu static_lib)
+    # --use_external_dawn on top of that: ORT dispatches every wgpu* call through a DawnProcTable the
+    # client hands it, so libonnxruntime.so carries no Dawn dependency at all. needs the bfx cmake patch
+    # (cmake/CMakeLists.txt:1036) to allow external Dawn and a Dawn shared library together.
+    BUILD_ARGS+=(--use_webgpu static_lib --use_external_dawn)
     CMAKE_EXTRA_DEFINES+=(onnxruntime_BUILD_DAWN_SHARED_LIBRARY=ON)
 fi
 

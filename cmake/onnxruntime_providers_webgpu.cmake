@@ -201,7 +201,7 @@
       list(APPEND onnxruntime_DELAYLOAD_FLAGS "/DELAYLOAD:user32.dll")
     endif()
 
-    if (onnxruntime_BUILD_DAWN_SHARED_LIBRARY)
+    if (onnxruntime_BUILD_DAWN_SHARED_LIBRARY AND NOT onnxruntime_USE_EXTERNAL_DAWN)
       target_link_libraries(onnxruntime_providers_webgpu PUBLIC dawn::webgpu_dawn)
 
       if (WIN32)
@@ -232,6 +232,15 @@
         target_link_libraries(onnxruntime_providers_webgpu PRIVATE dawn::dawn_native)
       endif()
       target_link_libraries(onnxruntime_providers_webgpu PRIVATE dawn::dawn_proc)
+
+      # bfx: external Dawn *and* a Dawn shared library. ORT links only the dawn_proc dispatch (static,
+      # and hidden by onnxruntime's version script), so libonnxruntime has no Dawn dependency at all -
+      # but we still want webgpu_dawn built and staged, for the client to link against and to take the
+      # DawnProcTable from. Dawn is fetched EXCLUDE_FROM_ALL, so without this nothing builds it.
+      if (onnxruntime_BUILD_DAWN_SHARED_LIBRARY)
+        add_dependencies(onnxruntime_providers_webgpu webgpu_dawn)
+        list(APPEND onnxruntime_providers_webgpu_dll_deps "$<TARGET_FILE:dawn::webgpu_dawn>")
+      endif()
     endif()
 
     if (WIN32 AND onnxruntime_ENABLE_DAWN_BACKEND_D3D12)

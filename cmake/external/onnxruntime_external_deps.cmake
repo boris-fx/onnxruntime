@@ -657,9 +657,11 @@ if (onnxruntime_USE_WEBGPU)
         set(DAWN_BUILD_MONOLITHIC_LIBRARY SHARED CACHE BOOL "" FORCE)
         set(DAWN_ENABLE_INSTALL ON CACHE BOOL "" FORCE)
 
-        if (onnxruntime_USE_EXTERNAL_DAWN)
-          message(FATAL_ERROR "onnxruntime_USE_EXTERNAL_DAWN and onnxruntime_BUILD_DAWN_SHARED_LIBRARY cannot be enabled at the same time.")
-        endif()
+        # bfx: upstream rejects USE_EXTERNAL_DAWN together with BUILD_DAWN_SHARED_LIBRARY. we allow it,
+        # because we want both halves: Dawn built here as webgpu_dawn (so we ship one Dawn, built from
+        # the revision ORT pins), and ORT compiled against the external-Dawn path so it calls through a
+        # DawnProcTable instead of linking webgpu_dawn - which keeps libonnxruntime free of any Dawn
+        # dependency at load time. see onnxruntime_providers_webgpu.cmake for the link side.
       else()
         # use dawn::dawn_native and dawn::dawn_proc instead of the monolithic dawn::webgpu_dawn to minimize binary size
         set(DAWN_BUILD_MONOLITHIC_LIBRARY OFF CACHE BOOL "" FORCE)

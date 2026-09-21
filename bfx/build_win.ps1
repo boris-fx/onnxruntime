@@ -170,7 +170,11 @@ if ($USE_DML)    { $COMMON_BUILD_ARGS_LIST += '--use_dml' }
 # client create its own WGPUDevice/WGPUBuffer and hand them to ORT: both sides call the same Dawn.
 # the plugin form ('--use_webgpu shared_lib') hides every Dawn symbol behind CreateEpFactories, and cmake
 # rejects combining it with a Dawn DLL outright - see cmake/CMakeLists.txt:1036-1042.
-if ($USE_WEBGPU) { $COMMON_BUILD_ARGS_LIST += @('--use_webgpu', 'static_lib') }
+# --use_external_dawn on top of that: ORT then dispatches every wgpu* call through a DawnProcTable the
+# client hands it, so onnxruntime.dll carries no Dawn import at all and the client's WGPUDevice/WGPUBuffer
+# handles are the same objects ORT sees. needs the bfx cmake patch (cmake/CMakeLists.txt:1036) to allow
+# external Dawn and a Dawn shared library together.
+if ($USE_WEBGPU) { $COMMON_BUILD_ARGS_LIST += @('--use_webgpu', 'static_lib', '--use_external_dawn') }
 $COMMON_BUILD_ARGS = $COMMON_BUILD_ARGS_LIST -join ' '
 $COMMON_BUILD_DIR = "$(Get-Location)\build"
 
