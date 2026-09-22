@@ -8,6 +8,8 @@
 #include "DmlResourceWrapper.h"
 #include "AllocationInfo.h"
 
+struct BfxDmlExternalAllocator; // bfx
+
 namespace Dml
 {
     class DmlSubAllocator;
@@ -45,6 +47,9 @@ namespace Dml
         const AllocationInfo* DecodeDataHandle(const void* opaqueHandle);
 
         void SetDefaultRoundingMode(AllocatorRoundingMode roundingMode);
+
+        // bfx: allocate from the client's allocator instead of the buckets, see bfx_dml_external_allocator.h
+        void BfxSetExternalAllocator(const BfxDmlExternalAllocator* allocator) { m_bfxExternalAllocator = allocator; }
 
     public: // onnxruntime::IAllocator
         void* Alloc(size_t size, AllocatorRoundingMode roundingMode);
@@ -91,6 +96,7 @@ namespace Dml
 
         ComPtr<ExecutionContext> m_context;
         std::unique_ptr<DmlSubAllocator> m_subAllocator;
+        const BfxDmlExternalAllocator* m_bfxExternalAllocator = nullptr; // bfx
 
     #ifndef NDEBUG
         // Useful for debugging; keeps track of all allocations that haven't been freed yet

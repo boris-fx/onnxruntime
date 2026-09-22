@@ -23,6 +23,8 @@ using Base = Microsoft::WRL::RuntimeClass<
     TInterfaces...>;
 }
 
+struct BfxDmlExternalAllocator; // bfx
+
 namespace Dml
 {
     using Microsoft::WRL::ComPtr;
@@ -189,6 +191,10 @@ namespace Dml
         onnxruntime::common::Status OnSessionInitializationEnd();
         std::vector<onnxruntime::AllocatorPtr> CreatePreferredAllocators();
 
+        // bfx: see core/providers/dml/bfx_dml_external_allocator.h. Set before CreatePreferredAllocators()
+        void BfxSetExternalAllocator(const BfxDmlExternalAllocator* allocator) { m_bfxExternalAllocator = allocator; }
+        const BfxDmlExternalAllocator* BfxGetExternalAllocator() const { return m_bfxExternalAllocator; }
+
     private:
         void Initialize(ID3D12CommandQueue* queue, ExecutionProvider& executionProvider);
 
@@ -215,6 +221,7 @@ namespace Dml
         bool m_sessionInitialized = false;
         bool m_cpuSyncSpinningEnabled = false;
         bool m_memoryArenaDisabled = false;
+        const BfxDmlExternalAllocator* m_bfxExternalAllocator = nullptr; // bfx
         ComPtr<ExecutionContext> m_context;
         std::unique_ptr<PooledUploadHeap> m_uploadHeap;
         std::unique_ptr<ReadbackHeap> m_readbackHeap;

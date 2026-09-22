@@ -2,6 +2,7 @@
 
 #include "DmlGraphFusionHelper.h"
 #include "DmlRuntimeFusedGraphKernel.h"
+#include "BfxExternalAllocator.h" // bfx
 
 #include "core/common/endian.h"
 #include "core/framework/endian_utils.h"
@@ -37,6 +38,12 @@ namespace DmlGraphFusionHelper
         Microsoft::WRL::ComPtr<ID3D12Device> d3dDevice;
         ORT_THROW_IF_FAILED(provider->GetD3DDevice(d3dDevice.GetAddressOf()));
 
+        // bfx: from the client's allocator if it has one, see bfx_dml_external_allocator.h
+        if (const auto* external = provider->BfxGetExternalAllocator())
+        {
+            buffer = BfxAllocResource(*external, static_cast<size_t>(resourceDesc.Width), /*persistent*/ true);
+        }
+        else
         ORT_THROW_IF_FAILED(d3dDevice->CreateCommittedResource(
             &heapProperties,
             D3D12_HEAP_FLAG_NONE,

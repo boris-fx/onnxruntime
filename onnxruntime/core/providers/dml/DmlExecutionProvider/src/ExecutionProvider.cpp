@@ -262,6 +262,7 @@ namespace Dml
                 D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
                 D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
                 std::make_unique<DmlCommittedResourceAllocator>(m_d3d12Device.Get()));
+            m_allocator->BfxSetExternalAllocator(m_bfxExternalAllocator); // bfx
             m_context->SetAllocator(m_allocator);
             // CPU Allocator used to create buffers for the MemcpyFromHost, Shape and Size operators.
             OrtMemoryInfo memoryInfo(onnxruntime::CPU, OrtAllocatorType::OrtDeviceAllocator);
@@ -1310,6 +1311,12 @@ namespace Dml
     {
         ExecutionProvider* dmlexecutionprovider = static_cast<Dml::ExecutionProvider*>(provider);
         dmlexecutionprovider->Flush();
+    }
+
+    // bfx
+    void BfxSetExternalAllocator(onnxruntime::IExecutionProvider* provider, const BfxDmlExternalAllocator* allocator)
+    {
+        static_cast<Dml::ExecutionProvider*>(provider)->GetImpl()->BfxSetExternalAllocator(allocator);
     }
 
     void ReleaseCompletedReferences(onnxruntime::IExecutionProvider * provider)

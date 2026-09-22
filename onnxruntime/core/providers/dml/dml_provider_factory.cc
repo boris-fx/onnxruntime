@@ -34,6 +34,7 @@ using Microsoft::WRL::ComPtr;
 #include "DmlExecutionProvider/inc/DmlExecutionProvider.h"
 #include "core/platform/env.h"
 #include "core/providers/dml/dml_session_options_config_keys.h"
+#include "core/providers/dml/bfx_dml_external_allocator.h" // bfx
 #include "core/providers/dml/DmlExecutionProvider/src/ExecutionContext.h"
 
 namespace onnxruntime {
@@ -59,6 +60,9 @@ struct DMLProviderFactory : IExecutionProviderFactory {
     graph_capture_enabled_ = ConfigValueIsTrue(config_options.GetConfigOrDefault(kOrtSessionOptionsConfigEnableGraphCapture, "0"));
     cpu_sync_spinning_enabled_ = ConfigValueIsTrue(config_options.GetConfigOrDefault(kOrtSessionOptionsConfigEnableCpuSyncSpinning, "0"));
     disable_memory_arena_ = ConfigValueIsTrue(config_options.GetConfigOrDefault(kOrtSessionOptionsConfigDisableMemoryArena, "0"));
+    // bfx: see core/providers/dml/bfx_dml_external_allocator.h
+    const auto bfx_external_allocator = config_options.GetConfigOrDefault(kBfxDmlExternalAllocator, "");
+    if (!bfx_external_allocator.empty()) bfx_external_allocator_ = reinterpret_cast<const BfxDmlExternalAllocator*>(std::stoull(bfx_external_allocator));
   }
 
   ~DMLProviderFactory() override {}
@@ -78,6 +82,7 @@ struct DMLProviderFactory : IExecutionProviderFactory {
   bool cpu_sync_spinning_enabled_ = false;
   bool disable_memory_arena_ = false;
   bool python_api_ = false;
+  const BfxDmlExternalAllocator* bfx_external_allocator_ = nullptr; // bfx
 };
 
 std::unique_ptr<IExecutionProvider> DMLProviderFactory::CreateProvider() {
@@ -99,6 +104,7 @@ std::unique_ptr<IExecutionProvider> DMLProviderFactory::CreateProvider() {
   }
 
   auto provider = Dml::CreateExecutionProvider(dml_device_.Get(), execution_context.Get(), metacommands_enabled_, graph_capture_enabled_, cpu_sync_spinning_enabled_, disable_memory_arena_);
+  if (bfx_external_allocator_) Dml::BfxSetExternalAllocator(provider.get(), bfx_external_allocator_); // bfx
   return provider;
 }
 

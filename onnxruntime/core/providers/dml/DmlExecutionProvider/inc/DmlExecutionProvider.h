@@ -6,6 +6,7 @@ interface IMLOperatorRegistry;
 interface IDMLDevice;
 interface ID3D12CommandQueue;
 interface ID3D12Resource;
+struct BfxDmlExternalAllocator; // bfx
 
 #include "core/common/status.h"
 #include "core/framework/data_transfer.h"
@@ -39,6 +40,8 @@ namespace Dml
 
     ID3D12Resource* GetD3D12ResourceFromAllocation(onnxruntime::IAllocator* allocator, void* ptr);
     void FlushContext(onnxruntime::IExecutionProvider* provider);
+    // bfx: see core/providers/dml/bfx_dml_external_allocator.h
+    void BfxSetExternalAllocator(onnxruntime::IExecutionProvider* provider, const BfxDmlExternalAllocator* allocator);
     void ReleaseCompletedReferences(onnxruntime::IExecutionProvider* provider);
 
     onnxruntime::common::Status CopyTensor(

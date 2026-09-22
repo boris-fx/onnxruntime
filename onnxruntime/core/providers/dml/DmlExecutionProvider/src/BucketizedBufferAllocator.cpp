@@ -7,6 +7,7 @@
 
 #include "BucketizedBufferAllocator.h"
 #include "DmlSubAllocator.h"
+#include "BfxExternalAllocator.h" // bfx
 // #define PRINT_OUTSTANDING_ALLOCATIONS
 
 namespace Dml
@@ -90,8 +91,15 @@ namespace Dml
         uint64_t resourceId = 0;
         uint64_t bucketSize = 0;
 
+        if (m_bfxExternalAllocator)
+        {
+            // bfx: the client's allocator decides what to pool and reuse, see bfx_dml_external_allocator.h
+            bucketSize = (size + 3) & ~3;
+            resourceWrapper = BfxAllocResourceWrapper(*m_bfxExternalAllocator, onnxruntime::narrow<size_t>(bucketSize));
+            resourceId = ++m_currentResourceId;
+        }
         // Use a pooled resource if the size (post rounding, if requested) matches a bucket size
-        if (roundingMode == AllocatorRoundingMode::Enabled || size == GetBucketSizeFromIndex(GetBucketIndexFromSize(size)))
+        else if (roundingMode == AllocatorRoundingMode::Enabled || size == GetBucketSizeFromIndex(GetBucketIndexFromSize(size)))
         {
             Bucket* bucket = nullptr;
 
@@ -129,7 +137,7 @@ namespace Dml
             resourceId = ++m_currentResourceId;
         }
 
-        assert(resourceWrapper->GetD3D12Resource()->GetDesc().Width == bucketSize);
+        assert(resourceWrapper->GetD3D12Resource()->GetDesc().Width >= bucketSize); // bfx: ==, but a client's allocator can reuse a larger buffer
         assert(resourceWrapper != nullptr);
 
         ComPtr<AllocationInfo> allocInfo = Dml::SafeMakeOrThrow<AllocationInfo>(
@@ -170,7 +178,13 @@ namespace Dml
 
         // Free the resource to the pool if its size matches a bucket size
         gsl::index bucketIndex = GetBucketIndexFromSize(allocInfo->GetRequestedSize());
-        if (GetBucketSizeFromIndex(bucketIndex) == allocInfo->GetResource()->GetDesc().Width)
+        if (m_bfxExternalAllocator)
+        {
+            // bfx: back to the client's allocator, which keeps it alive for as long as queued work may use it
+            m_bfxExternalAllocator->free(m_bfxExternalAllocator->ctx, allocInfo->GetResource());
+            allocInfo->DetachResourceWrapper();
+        }
+        else if (GetBucketSizeFromIndex(bucketIndex) == allocInfo->GetResource()->GetDesc().Width)
         {
             assert(gsl::narrow_cast<gsl::index>(m_pool.size()) > bucketIndex);
 
