@@ -831,7 +831,11 @@ if (onnxruntime_USE_WEBGPU)
   endif()
 
   if (NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-    if (onnxruntime_BUILD_DAWN_SHARED_LIBRARY)
+    # bfx: 'AND NOT ...USE_EXTERNAL_DAWN' matches the same test in onnxruntime_providers_webgpu.cmake.
+    # with external Dawn we link only the dawn_proc dispatch; linking webgpu_dawn as well puts two
+    # definitions of every wgpu* entry point on the link line (LNK2005 on MSVC, silently first-wins on
+    # ELF - which would quietly restore the libwebgpu_dawn.so dependency we are trying to avoid).
+    if (onnxruntime_BUILD_DAWN_SHARED_LIBRARY AND NOT onnxruntime_USE_EXTERNAL_DAWN)
       list(APPEND onnxruntime_EXTERNAL_LIBRARIES dawn::webgpu_dawn)
     else()
       if (NOT onnxruntime_USE_EXTERNAL_DAWN)
