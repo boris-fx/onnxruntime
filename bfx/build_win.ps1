@@ -225,6 +225,39 @@ function Write-DepsManifest {
     Pop-Location
 }
 
+# Dawn copies dxil.dll out of the Windows SDK - it is a signed binary microsoft does not ship in source
+# form, and D3D12 rejects unsigned DXIL outside developer mode, so it is needed at runtime. Dawn picks
+# the SDK version by globbing Include\10.* and taking the highest, then builds a path under
+# bin\<ver>\x64 (dawn's third_party/CopyWindowsSDKDLL.cmake) - two directory sets that need not agree.
+# A machine with Include\10.0.26100.0 but no bin\10.0.26100.0\x64\dxil.dll (our jenkins agent) dies deep
+# in the dawn build with a bare "Error copying file". So pin the version to the newest SDK that actually
+# has the DLL: where the newest SDK is complete this resolves to exactly what dawn would have picked, so
+# it is a no-op there. note the arm64 build uses the VS generator, where this variable also selects the
+# SDK used to compile - hence picking the newest working one rather than hardcoding an old version.
+$DXIL_SDK_VERSION = ''
+if ($USE_WEBGPU) {
+    $SDK_BIN = 'C:\Program Files (x86)\Windows Kits\10\bin'
+    # dawn's copy step always takes the x64 copy (that path is hardcoded), but an arm64 dist has to ship
+    # the arm64 one, so require every flavour we will actually consume to be present in the same version.
+    $DXIL_ARCHES = @('x64')
+    if ($BUILD_ARM64) { $DXIL_ARCHES += 'arm64' }
+    $DXIL_SDK = Get-ChildItem $SDK_BIN -Directory -ErrorAction SilentlyContinue |
+        Where-Object {
+            if ($_.Name -notlike '10.*') { return $false }
+            $SDK_DIR = $_.FullName
+            foreach ($A in $DXIL_ARCHES) {
+                if (-not (Test-Path (Join-Path $SDK_DIR "${A}\dxil.dll"))) { return $false }
+            }
+            return $true
+        } |
+        Sort-Object { [version]$_.Name } | Select-Object -Last 1
+    if (-not $DXIL_SDK) {
+        throw "no Windows SDK under ${SDK_BIN} provides dxil.dll for all of: $($DXIL_ARCHES -join ', '). a webgpu build needs it at runtime; install the Windows SDK component that ships it."
+    }
+    $DXIL_SDK_VERSION = $DXIL_SDK.Name
+    Write-Output "-- webgpu: pinning Windows SDK to ${DXIL_SDK_VERSION} (newest providing dxil.dll for: $($DXIL_ARCHES -join ', ')) --"
+}
+
 $X86_64_NAME = "x86_64"
 $X86_64_BUILD_DIR = "${COMMON_BUILD_DIR}\${X86_64_NAME}"
 $X86_64_DIST_LIB_DIR="${DIST_LIB_DIR}\${X86_64_NAME}"
@@ -236,7 +269,7 @@ $ARM64_DIST_LIB_DIR="${DIST_LIB_DIR}\${ARM64_NAME}"
 # x86_64
 if ($BUILD_X86_64) {
     $X86_64_CMAKE_EXTRA_DEFINES_LIST = @('onnxruntime_BUILD_UNIT_TESTS=OFF')
-    if ($USE_WEBGPU) { $X86_64_CMAKE_EXTRA_DEFINES_LIST += 'onnxruntime_BUILD_DAWN_SHARED_LIBRARY=ON' }
+    if ($USE_WEBGPU) { $X86_64_CMAKE_EXTRA_DEFINES_LIST += @('onnxruntime_BUILD_DAWN_SHARED_LIBRARY=ON', "CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION=${DXIL_SDK_VERSION}") }
     $X86_64_ARGS_LIST = @('--cmake_generator', 'Ninja')
     if ($X86_64_USE_CUDA) {
         $X86_64_CMAKE_EXTRA_DEFINES_LIST += @("CMAKE_CUDA_FLAGS=${CMAKE_CUDA_FLAGS}", "CMAKE_CUDA_ARCHITECTURES=${CMAKE_CUDA_ARCHITECTURES}", 'onnxruntime_USE_FLASH_ATTENTION:BOOL=ON')
@@ -300,7 +333,7 @@ if ($BUILD_ARM64) {
     # the x86_64 build fails when running MSVC generator, due to 'visual studio integration' not being present on the CUDA SDK artifact (cuda_sdk/extras/visual_studio_integration/MSBuildExtensions)
     $ARM64_ARGS_LIST = @('--cmake_generator', '"Visual Studio 17 2022"', '--arm64')
     $ARM64_CMAKE_EXTRA_DEFINES_LIST = @('onnxruntime_BUILD_UNIT_TESTS=OFF')
-    if ($USE_WEBGPU) { $ARM64_CMAKE_EXTRA_DEFINES_LIST += 'onnxruntime_BUILD_DAWN_SHARED_LIBRARY=ON' }
+    if ($USE_WEBGPU) { $ARM64_CMAKE_EXTRA_DEFINES_LIST += @('onnxruntime_BUILD_DAWN_SHARED_LIBRARY=ON', "CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION=${DXIL_SDK_VERSION}") }
 
     if ($USE_WEBGPU) {
         # Dawn/DXC (needed for --use_webgpu) builds its own copy of LLVM's tablegen tool. When cross-compiling
@@ -344,8 +377,12 @@ if ($BUILD_ARM64) {
         Copy-Pdb "${ARM64_BUILD_LIB_DIR}\${LIB}.pdb" $ARM64_DIST_LIB_DIR
     }
     if ($USE_WEBGPU) {
-        # see the x86_64 block above - Dawn's D3D12 backend needs DXC at runtime
-        Copy-Item "${ARM64_BUILD_LIB_DIR}\dxil.dll" $ARM64_DIST_LIB_DIR
+        # see the x86_64 block above - Dawn's D3D12 backend needs DXC at runtime. dxcompiler.dll is built
+        # by dawn, so the arm64 build tree holds a real arm64 one. dxil.dll is not: it is a prebuilt SDK
+        # binary, and dawn's copy step hardcodes the x64 path (CopyWindowsSDKDLL.cmake) even when
+        # targeting arm64, so what it staged is an x64 DLL that cannot load into an arm64 process. take
+        # the arm64 flavour straight from the SDK instead - the version was pinned to one that has it.
+        Copy-Item "${SDK_BIN}\${DXIL_SDK_VERSION}\arm64\dxil.dll" $ARM64_DIST_LIB_DIR
         Copy-Item "${ARM64_BUILD_LIB_DIR}\dxcompiler.dll" $ARM64_DIST_LIB_DIR
 
         Copy-Item "${ARM64_BUILD_LIB_DIR}\webgpu_dawn.dll" $ARM64_DIST_LIB_DIR
